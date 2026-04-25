@@ -1,0 +1,66 @@
+# =====================================================================
+# config/xai/generic_attention.yaml
+# Generic Attention — Chefer et al., CVPR 2021
+# "Transformer Interpretability Beyond Attention Visualization"
+# https://arxiv.org/abs/2012.09838
+# =====================================================================
+# ⭐ RECOMMENDED method for ViT (passes sanity checks, better fidelity)
+# =====================================================================
+
+# @package xai
+
+name: generic_attention
+category: attention_gradient_hybrid
+applicable_to: [vit_pure, vit_ssl]    # ViT-Base, DeiT, DINOv2
+library: custom                        # implemented in src/xai/classical/
+
+# ---- Core settings ----
+use_gradients: true                    # attention × gradient — KEY innovation
+
+# ---- Aggregation ----
+head_fusion: mean_positive             # ReLU(A * dA) then mean over heads
+# Options:
+#   - mean_positive: [A * dA]^+ then mean (Chefer original)
+#   - mean: A * dA then mean
+#   - max: max over heads
+
+# ---- Rollout integration ----
+rollout_with_residuals: true
+residual_weight: 1.0                   # add identity (skip connections)
+normalize_per_layer: true
+
+# ---- Layer range ----
+start_layer: 0                         # propagate from this layer
+end_layer: -1                          # -1 = last
+
+# ---- Discard threshold ----
+discard_ratio: 0.0                     # don't discard — Chefer uses full info
+
+# ---- Token handling ----
+num_extra_tokens: 1                    # adjusted per model (DeiT=2)
+
+# ---- Post-processing ----
+postprocess:
+  reshape_height: ${model.xai_hooks.reshape_height}
+  reshape_width: ${model.xai_hooks.reshape_width}
+  upsample_mode: bilinear
+  upsample_to_input_size: true
+  normalize: minmax
+
+# ---- Visualization ----
+visualization:
+  colormap: jet
+  alpha: 0.5
+
+# ---- Output ----
+output:
+  save_npy: true
+  save_overlays: true
+  save_dir: ${paths.results_dir}/xai/${model.name}/${xai.name}
+
+# ---- Properties ----
+properties:
+  passes_sanity_checks: true            # validated in Chefer 2021
+  fidelity: high
+  speed: medium                         # ~2x slower than Grad-CAM (one backward pass)
+  recommended_for_vit: true

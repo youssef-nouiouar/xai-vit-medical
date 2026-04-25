@@ -1,0 +1,97 @@
+# =====================================================================
+# config/model/dinov2.yaml
+# DINOv2-ViT-B/14 — Self-Supervised Learning
+# =====================================================================
+# Role: tests H2 — SSL produces more interpretable features than
+# supervised. Uses frozen backbone + linear probe by default
+# (often outperforms full fine-tuning in medical imaging).
+# =====================================================================
+
+# @package model
+
+name: dinov2_vitb14
+family: vit_ssl
+role: vit_ssl_xai_test
+
+# ---- Source ----
+source: torch_hub                  # NOT timm — uses facebookresearch/dinov2
+hub_repo: facebookresearch/dinov2
+hub_model: dinov2_vitb14
+pretrained: true                   # always true — DINOv2 is SSL-pretrained
+
+# ---- Architecture ----
+architecture:
+  num_classes: ${dataset.num_classes}
+  patch_size: 14                   # NOTE: 14, not 16
+  embed_dim: 768
+  depth: 12
+  num_heads: 12
+  mlp_ratio: 4.0
+  qkv_bias: true
+  drop_path_rate: 0.0              # No drop path during inference
+
+# ---- Input ----
+input:
+  image_size: 224                  # native is 518; use 224 to save VRAM
+  channels: 3
+  # Compute num_patches from size: (224/14)^2 = 256
+  num_patches: 256
+
+# ---- Usage mode ----
+# CRITICAL: choose ONE
+usage_mode: frozen_linear_probe    # frozen_linear_probe | full_finetune | feature_extractor
+
+# Mode-specific configs
+frozen_linear_probe:
+  freeze_backbone: true
+  head_type: linear                # simple Linear layer
+  head_dropout: 0.0
+
+full_finetune:
+  freeze_backbone: false
+  layer_decay: 0.75                # LLRD
+  base_lr: 1.0e-5
+
+feature_extractor:
+  freeze_backbone: true
+  return_features: true            # for SAE training, MIL pipelines, etc.
+
+# ---- XAI hooks ----
+xai_hooks:
+  gradcam_target_layer: "blocks.11.norm1"
+  reshape_transform_required: true
+  reshape_height: 16               # (224/14) = 16
+  reshape_width: 16
+  num_extra_tokens: 1              # [CLS] only
+  attention_layers: "blocks.{i}.attn"
+  attention_supported: true
+  rollout_supported: true
+  generic_attention_supported: true
+
+  # SAE — Contribution C1 (PRIMARY TARGET — H2 hypothesis)
+  sae_target_layer: "blocks.8.mlp"
+  sae_d_in: 768
+
+  # Activation Patching — Contribution C2 (PRIMARY TARGET)
+  patching_layers: [0, 3, 6, 9, 11]
+  patching_components: ["attn_output", "mlp_output", "resid_post"]
+
+# ---- Training overrides ----
+training_overrides:
+  # For frozen + linear probe
+  optimizer:
+    lr: 1.0e-3                     # higher LR — only training linear head
+    weight_decay: 0.01
+  scheduler:
+    warmup_epochs: 0
+  llrd: false                      # N/A when frozen
+  batch_size: 32
+  epochs: 50
+  gradient_clipping: 1.0
+
+# ---- Metadata ----
+metadata:
+  parameters_M: 86
+  parameters_trainable_frozen: 0.006   # only the linear head (768*8 + 8 ≈ 6k)
+  paper: "DINOv2: Learning Robust Visual Features without Supervision (Oquab et al., 2023)"
+  arxiv: "https://arxiv.org/abs/2304.07193"

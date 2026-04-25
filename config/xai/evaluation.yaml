@@ -1,0 +1,137 @@
+# =====================================================================
+# config/xai/evaluation.yaml
+# XAI evaluation metrics & sanity checks
+# Used by src/evaluation/* scripts
+# =====================================================================
+
+# @package xai_eval
+
+name: xai_evaluation
+
+# ===== FAITHFULNESS METRICS =====
+faithfulness:
+
+  # Insertion AUC (↑ better)
+  insertion:
+    enabled: true
+    n_steps: 50
+    direction: ascending                # add pixels by descending importance
+    baseline: black                     # black | blurred | mean
+    metric: model_confidence            # for the predicted class
+    aggregation: auc                    # area under curve
+
+  # Deletion AUC (↓ better)
+  deletion:
+    enabled: true
+    n_steps: 50
+    direction: descending               # remove pixels by descending importance
+    replacement: black                  # what to replace with
+    metric: model_confidence
+    aggregation: auc
+
+  # Combined faithfulness
+  faithfulness_score:
+    formula: "insertion_auc - deletion_auc"
+    targets:
+      excellent: 0.4
+      good: 0.2
+      poor: 0.1
+
+# ===== LOCALIZATION METRICS =====
+localization:
+
+  # Pointing Game
+  pointing_game:
+    enabled: true
+    criterion: argmax_in_mask          # argmax(saliency) in GT mask
+    requires_ground_truth_mask: true   # ISIC 2019 has segmentation masks
+
+  # IoU with ground truth lesion mask
+  iou:
+    enabled: true
+    thresholds: [0.1, 0.3, 0.5, 0.7]
+    aggregation: auc                    # area under thresholds curve
+
+  # Energy in lesion
+  energy_in_roi:
+    enabled: true
+    formula: "sum(saliency in ROI) / sum(saliency)"
+
+# ===== SANITY CHECKS (Adebayo et al. NeurIPS 2018) =====
+# CRITICAL: must pass before publication
+sanity_checks:
+
+  # 1. Model parameter randomization test
+  model_randomization:
+    enabled: true
+    randomization_strategy: cascading   # cascading | independent | full
+    layers_to_randomize: all            # all | top_k | bottom_k
+    n_random_seeds: 3
+    metric: spearman_rank_correlation
+    pass_criterion: "correlation < 0.3"
+
+  # 2. Label randomization test
+  label_randomization:
+    enabled: true
+    train_with_random_labels: true     # requires retraining
+    metric: saliency_difference
+    pass_criterion: "saliency significantly different from trained model"
+    # Note: expensive — only run for final paper
+
+  # 3. Stability under noise
+  stability_noise:
+    enabled: true
+    noise_type: gaussian
+    noise_sigma: 0.05
+    n_trials: 10
+    metric: ssim                        # structural similarity
+    pass_criterion: "SSIM > 0.8"
+
+  # 4. Stability under transformations
+  stability_transformations:
+    enabled: true
+    transformations:
+      - {name: rotate, params: {angle: 5}}
+      - {name: shift, params: {pixels: 10}}
+      - {name: jpeg_compression, params: {quality: 90}}
+    metric: spearman_correlation
+    pass_criterion: "correlation > 0.7"
+
+# ===== AGGREGATION & REPORTING =====
+aggregation:
+  per_class: true                       # report per ISIC class
+  per_method: true
+  per_model: true
+  bootstrap_ci: true                    # 95% confidence intervals
+  n_bootstrap: 2000
+
+statistical_tests:
+  between_methods:
+    test: wilcoxon_signed_rank          # paired test
+    multiple_comparison: bonferroni
+    significance_level: 0.05
+
+  between_models:
+    test: delong                        # for AUC comparison
+    n_bootstrap: 2000
+
+# ===== HUMAN EVALUATION (clinical) =====
+human_evaluation:
+  enabled: false                        # set True when ready
+  protocol:
+    n_dermatologists: 2
+    n_cases_per_method: 50
+    rating_scale: [1, 5]
+    criteria:
+      - clinical_coherence_ABCDE
+      - usefulness_for_diagnosis
+      - trust_calibration
+    inter_rater_metric: fleiss_kappa
+    blind_to_method: true               # double-blind protocol
+
+# ===== OUTPUT =====
+output:
+  save_dir: ${paths.results_dir}/evaluation
+  save_per_sample: true
+  save_aggregated_csv: true
+  generate_report: true                 # auto-generate summary PDF/HTML

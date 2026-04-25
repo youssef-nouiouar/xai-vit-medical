@@ -1,0 +1,87 @@
+# =====================================================================
+# config/model/vit_base.yaml
+# ViT-Base/16 — SOTA ANCHOR for XAI (MANDATORY)
+# =====================================================================
+# Role: REFERENCE for all XAI methods. Without ViT-Base, results are
+# not comparable to recent literature (Chefer 2021, Stevens 2025,
+# PatchSAE ICLR 2025, CaFE 2025). DO NOT REMOVE FROM PIPELINE.
+# =====================================================================
+
+# @package model
+
+name: vit_base
+family: vit_pure
+role: sota_anchor_xai           # ⭐ MANDATORY
+
+# ---- timm config ----
+source: timm
+timm_name: vit_base_patch16_224
+pretrained: true
+pretrained_cfg: orig_in21k_ft_in1k    # ImageNet-21k → ft on ImageNet-1k
+# Alternative pretrained options (see timm.list_pretrained()):
+#   - vit_base_patch16_224.augreg_in21k_ft_in1k
+#   - vit_base_patch16_224.augreg2_in21k_ft_in1k
+
+# ---- Architecture ----
+architecture:
+  num_classes: ${dataset.num_classes}
+  patch_size: 16
+  num_patches: 196                # (224 / 16)^2
+  embed_dim: 768
+  depth: 12                       # number of transformer blocks
+  num_heads: 12
+  mlp_ratio: 4.0
+  qkv_bias: true
+  drop_rate: 0.0
+  attn_drop_rate: 0.0
+  drop_path_rate: 0.1
+  pre_norm: true                  # pre-LN (standard for ViT)
+  cls_token: true
+  global_pool: token              # token | avg
+
+# ---- Positional embedding ----
+pos_embed:
+  type: learnable
+  interpolation: bilinear         # for resolution change
+
+# ---- Input ----
+input:
+  image_size: 224
+  channels: 3
+
+# ---- XAI hooks ----
+xai_hooks:
+  gradcam_target_layer: "blocks.11.norm1"
+  reshape_transform_required: true       # CRITICAL for ViT
+  reshape_height: 14
+  reshape_width: 14
+  attention_layers: "blocks.{i}.attn"
+  attention_supported: true
+  rollout_supported: true
+  generic_attention_supported: true
+
+  # SAE — Contribution C1
+  sae_target_layer: "blocks.8.mlp"       # MLP residual stream layer 8
+  sae_d_in: 768
+
+  # Activation Patching — Contribution C2
+  patching_layers: [0, 3, 6, 9, 11]
+  patching_components: ["attn_output", "mlp_output", "resid_post"]
+
+# ---- Training overrides ----
+training_overrides:
+  optimizer:
+    lr: 1.0e-5
+    weight_decay: 0.05
+  scheduler:
+    warmup_epochs: 5
+  llrd: 0.75                       # Layer-wise LR decay — IMPORTANT for ViT
+  batch_size: 16
+  epochs: 30
+  gradient_clipping: 1.0
+
+# ---- Metadata ----
+metadata:
+  parameters_M: 86
+  paper: "An Image Is Worth 16x16 Words (Dosovitskiy et al., ICLR 2021)"
+  arxiv: "https://arxiv.org/abs/2010.11929"

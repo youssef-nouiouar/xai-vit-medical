@@ -1,0 +1,69 @@
+# =====================================================================
+# config.yaml — Root Hydra configuration
+# =====================================================================
+# Usage examples:
+#   python -m src.training.trainer model=vit_base
+#   python -m src.training.trainer -m model=resnet50,vit_base,deit_base
+#   python -m src.training.trainer model=deit_base training.epochs=50
+# =====================================================================
+
+defaults:
+  - _self_
+  - dataset: isic2019
+  - model: vit_base                  # default — change via CLI
+  - training: classification
+  - xai: null                        # only set when running XAI scripts
+  - override hydra/job_logging: default
+  - override hydra/hydra_logging: default
+
+# ---- Project metadata ----
+project:
+  name: xai-vit-medical
+  phase: 1                            # Phase 1 only — Classification 2D
+  experiment_tag: ${now:%Y-%m-%d_%H-%M-%S}_${model.name}_${dataset.name}
+
+# ---- Reproducibility ----
+seed: 42
+deterministic: true                   # set False for slight speedup
+benchmark: false                      # cudnn.benchmark — True if input shapes constant
+
+# ---- Hardware ----
+hardware:
+  device: cuda                        # cuda or cpu
+  num_workers: 8
+  pin_memory: true
+  precision: 16-mixed                 # 16-mixed | bf16-mixed | 32
+
+# ---- Paths ----
+paths:
+  root_dir: ${oc.env:PWD}
+  data_dir: ${oc.env:DATA_DIR,./data}
+  output_dir: ${oc.env:OUTPUT_DIR,./outputs}
+  models_dir: ${paths.output_dir}/models
+  results_dir: ${paths.output_dir}/results
+  sae_dir: ${paths.output_dir}/sae
+  cache_dir: ./.cache
+
+# ---- Tracking (Weights & Biases) ----
+wandb:
+  enabled: true
+  project: ${oc.env:WANDB_PROJECT,xai-vit-medical}
+  entity: ${oc.env:WANDB_ENTITY,null}
+  tags: ["phase1", "${model.name}", "${dataset.name}"]
+  mode: online                        # online | offline | disabled
+
+# ---- Logging ----
+logging:
+  level: INFO
+  format: "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+  log_file: ${paths.output_dir}/logs/${project.experiment_tag}.log
+
+# ---- Hydra runtime config ----
+hydra:
+  run:
+    dir: ${paths.output_dir}/runs/${project.experiment_tag}
+  sweep:
+    dir: ${paths.output_dir}/multirun/${now:%Y-%m-%d_%H-%M-%S}
+    subdir: ${hydra.job.num}_${model.name}
+  job:
+    chdir: false                      # don't change working directory

@@ -1,0 +1,109 @@
+# =====================================================================
+# config/dataset/isic2019.yaml
+# ISIC 2019 — Skin lesion classification (8 classes)
+# =====================================================================
+# Source: https://challenge2019.isic-archive.com/
+# Total: ~25,331 dermoscopic images
+# =====================================================================
+
+# @package dataset
+
+name: isic2019
+task: classification
+modality: dermoscopy
+num_classes: 8
+
+# ---- Class names ----
+classes:
+  - MEL    # 0 — Melanoma                  (~17%)
+  - NV     # 1 — Melanocytic nevus         (~51%)
+  - BCC    # 2 — Basal cell carcinoma      (~13%)
+  - AK     # 3 — Actinic keratosis         (~3%)
+  - BKL    # 4 — Benign keratosis          (~10%)
+  - DF     # 5 — Dermatofibroma            (~1%)
+  - VASC   # 6 — Vascular lesion           (~1%)
+  - SCC    # 7 — Squamous cell carcinoma   (~4%)
+
+# Class weights for imbalanced loss (auto-computed if "auto")
+class_weights: auto
+
+# ---- Paths ----
+paths:
+  root: ${paths.data_dir}/isic2019
+  images: ${paths.data_dir}/isic2019/images
+  labels_csv: ${paths.data_dir}/isic2019/ISIC_2019_Training_GroundTruth.csv
+  metadata_csv: ${paths.data_dir}/isic2019/ISIC_2019_Training_Metadata.csv
+  splits_dir: ${paths.data_dir}/isic2019/splits
+
+# ---- Image specs ----
+image:
+  size: 224                            # 384 for DINOv2 if memory allows
+  channels: 3
+  format: jpg
+
+# ---- Splits (patient-level — NEVER image-level) ----
+splits:
+  strategy: stratified_group_kfold     # GroupKFold by patient_id
+  n_folds: 5
+  current_fold: 0                       # which fold to use as val (0..n_folds-1)
+  test_ratio: 0.15                      # held-out test set
+  random_state: ${seed}
+  group_by: patient_id                  # CRITICAL — no patient leakage
+  stratify_by: diagnosis
+
+# ---- Preprocessing ----
+preprocessing:
+  resize: 256
+  center_crop: 224
+  normalize:
+    mean: [0.485, 0.456, 0.406]         # ImageNet stats
+    std: [0.229, 0.224, 0.225]
+
+  # Optional medical-specific
+  hair_removal: false                   # DullRazor — slow, not always needed
+  ruler_detection: false                # detect ruler artefact (for shortcut analysis)
+
+# ---- Augmentations (training only) ----
+augmentation:
+  enabled: true
+  library: albumentations
+
+  train_transforms:
+    - name: RandomResizedCrop
+      params: {height: 224, width: 224, scale: [0.7, 1.0]}
+    - name: HorizontalFlip
+      params: {p: 0.5}
+    - name: VerticalFlip
+      params: {p: 0.5}                  # OK for dermoscopy
+    - name: RandomRotate90
+      params: {p: 0.5}
+    - name: ShiftScaleRotate
+      params: {shift_limit: 0.0625, scale_limit: 0.1, rotate_limit: 15, p: 0.5}
+    - name: ColorJitter
+      params: {brightness: 0.2, contrast: 0.2, saturation: 0.2, hue: 0.05, p: 0.5}
+    - name: GaussNoise
+      params: {var_limit: [10, 50], p: 0.2}
+
+  # Mixup / CutMix (applied at batch level)
+  mixup:
+    enabled: true
+    alpha: 0.8
+    cutmix_alpha: 1.0
+    prob: 0.5
+
+  # Test-time augmentation
+  tta:
+    enabled: false                      # turn on for final evaluation
+    n_augmentations: 8
+
+# ---- Imbalance handling ----
+imbalance:
+  strategy: weighted_sampling           # weighted_sampling | focal_loss | none
+
+# ---- Dataloader ----
+dataloader:
+  batch_size: 32                        # overridden per model in training config
+  num_workers: ${hardware.num_workers}
+  pin_memory: ${hardware.pin_memory}
+  persistent_workers: true
+  drop_last: true                       # for training only

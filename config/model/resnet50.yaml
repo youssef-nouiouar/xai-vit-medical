@@ -1,0 +1,58 @@
+# =====================================================================
+# config/model/resnet50.yaml
+# ResNet-50 — CNN baseline (control positive)
+# =====================================================================
+# Role: unique CNN baseline. Used as "control positive" where XAI
+# (Grad-CAM in particular) is well-understood. NOT for CNN vs ViT
+# comparison — the focus of this thesis is ViT explainability.
+# =====================================================================
+
+# @package model
+
+name: resnet50
+family: cnn
+role: baseline_control_positive
+
+# ---- timm config ----
+source: timm
+timm_name: resnet50
+pretrained: true
+pretrained_cfg: imagenet1k             # imagenet1k | imagenet21k_ft_in1k
+
+# ---- Architecture ----
+architecture:
+  num_classes: ${dataset.num_classes}
+  in_channels: 3
+  drop_rate: 0.2
+  drop_path_rate: 0.1
+  global_pool: avg
+
+# ---- Input ----
+input:
+  image_size: 224
+  channels: 3
+
+# ---- XAI hooks ----
+xai_hooks:
+  gradcam_target_layer: "layer4.2"
+  ig_target_layer: null                 # use input
+  lrp_supported: true
+  attention_supported: false            # not a transformer
+
+# ---- Training overrides (model-specific) ----
+training_overrides:
+  optimizer:
+    lr: 1.0e-4
+    weight_decay: 0.01
+  scheduler:
+    warmup_epochs: 0
+  llrd: false                           # No layer-wise LR decay for CNN
+  batch_size: 32
+  epochs: 30
+  gradient_clipping: 1.0
+
+# ---- Metadata ----
+metadata:
+  parameters_M: 25.6
+  paper: "Deep Residual Learning for Image Recognition (He et al., 2016)"
+  arxiv: "https://arxiv.org/abs/1512.03385"

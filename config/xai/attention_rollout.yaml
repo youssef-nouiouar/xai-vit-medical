@@ -1,0 +1,52 @@
+# =====================================================================
+# config/xai/attention_rollout.yaml
+# Attention Rollout — Abnar & Zuidema, ACL 2020
+# =====================================================================
+
+# @package xai
+
+name: attention_rollout
+category: attention_based
+applicable_to: [vit_pure, vit_ssl]    # NOT for Swin (windowed attention)
+library: custom                       # implemented in src/xai/classical/
+
+# ---- Aggregation across heads ----
+head_fusion: mean                     # mean | max | min
+
+# ---- Filtering ----
+discard_ratio: 0.9                    # discard bottom 90% of attention scores per layer
+# Higher = sparser, more focused; Lower = more diffuse
+
+# ---- Residual handling ----
+residual_weight: 0.5                  # (A + I) * residual_weight + I * (1-residual_weight)
+
+# ---- Layer range ----
+start_layer: 0                        # rollout from this layer onwards
+
+# ---- Token handling ----
+num_extra_tokens: 1                   # CLS only (set to 2 for DeiT with DIST)
+# Auto-resolved from model.xai_hooks.num_extra_tokens if set
+
+# ---- Post-processing ----
+postprocess:
+  reshape_height: ${model.xai_hooks.reshape_height}
+  reshape_width: ${model.xai_hooks.reshape_width}
+  upsample_mode: bilinear
+  upsample_to_input_size: true
+  normalize: minmax
+
+# ---- Visualization ----
+visualization:
+  colormap: jet
+  alpha: 0.5
+
+# ---- Output ----
+output:
+  save_npy: true
+  save_overlays: true
+  save_dir: ${paths.results_dir}/xai/${model.name}/${xai.name}
+
+# ---- Notes ----
+warnings:
+  - "WARNING: Often fails sanity checks. Use Generic Attention instead for ViT."
+  - "Not applicable to Swin Transformer (windowed attention breaks rollout)."

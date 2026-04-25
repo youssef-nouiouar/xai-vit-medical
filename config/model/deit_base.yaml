@@ -1,0 +1,89 @@
+# =====================================================================
+# config/model/deit_base.yaml
+# DeiT-Base — Data-efficient ViT
+# =====================================================================
+# Role: ViT trained efficiently on ImageNet-1K with knowledge
+# distillation. Better suited to small medical datasets. Primary
+# target for SAE (Contribution C1) and Activation Patching (C2).
+# =====================================================================
+
+# @package model
+
+name: deit_base
+family: vit_pure
+role: vit_data_efficient
+
+# ---- timm config ----
+source: timm
+timm_name: deit_base_distilled_patch16_224
+pretrained: true
+pretrained_cfg: fb_in1k
+
+# ---- Architecture ----
+architecture:
+  num_classes: ${dataset.num_classes}
+  patch_size: 16
+  num_patches: 196
+  embed_dim: 768
+  depth: 12
+  num_heads: 12
+  mlp_ratio: 4.0
+  qkv_bias: true
+  drop_rate: 0.0
+  attn_drop_rate: 0.0
+  drop_path_rate: 0.1
+  cls_token: true
+  distillation_token: true        # extra DIST token (DeiT-specific)
+  num_extra_tokens: 2             # [CLS] + [DIST]
+
+# ---- Distillation (optional during fine-tuning) ----
+distillation:
+  enabled: false                  # turn on if using KD on medical data
+  teacher: regnety_160
+  teacher_pretrained: true
+  type: hard                      # hard | soft
+  alpha: 0.5
+  tau: 3.0
+
+# ---- Input ----
+input:
+  image_size: 224
+  channels: 3
+
+# ---- XAI hooks ----
+xai_hooks:
+  gradcam_target_layer: "blocks.11.norm1"
+  reshape_transform_required: true
+  reshape_height: 14
+  reshape_width: 14
+  num_extra_tokens: 2             # CLS + DIST — important for reshape
+  attention_layers: "blocks.{i}.attn"
+  attention_supported: true
+  rollout_supported: true
+  generic_attention_supported: true
+
+  # SAE — Contribution C1 (PRIMARY TARGET)
+  sae_target_layer: "blocks.8.mlp"
+  sae_d_in: 768
+
+  # Activation Patching — Contribution C2 (PRIMARY TARGET)
+  patching_layers: [0, 3, 6, 9, 11]
+  patching_components: ["attn_output", "mlp_output", "resid_post"]
+
+# ---- Training overrides ----
+training_overrides:
+  optimizer:
+    lr: 1.0e-5
+    weight_decay: 0.05
+  scheduler:
+    warmup_epochs: 5
+  llrd: 0.75
+  batch_size: 16
+  epochs: 30
+  gradient_clipping: 1.0
+
+# ---- Metadata ----
+metadata:
+  parameters_M: 87
+  paper: "Training data-efficient image transformers (Touvron et al., ICML 2021)"
+  arxiv: "https://arxiv.org/abs/2012.12877"

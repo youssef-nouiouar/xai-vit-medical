@@ -1,0 +1,55 @@
+# =====================================================================
+# config/xai/gradcam.yaml
+# Grad-CAM — Gradient-weighted Class Activation Mapping
+# Selvaraju et al., ICCV 2017
+# =====================================================================
+
+# @package xai
+
+name: gradcam
+category: gradient_based
+applicable_to: [cnn, vit]            # all
+library: pytorch_grad_cam
+
+# ---- Variant selection ----
+variant: GradCAM                     # GradCAM | GradCAMPlusPlus | XGradCAM | EigenCAM | ScoreCAM
+# Variants to compare (run multiple):
+variants_to_compare:
+  - GradCAM
+  - GradCAMPlusPlus
+  - EigenCAM
+  - XGradCAM
+
+# ---- Target layer (auto-resolved from model.xai_hooks) ----
+target_layer: ${model.xai_hooks.gradcam_target_layer}
+
+# ---- Reshape transform (REQUIRED for ViT) ----
+reshape_transform:
+  enabled: ${model.xai_hooks.reshape_transform_required}
+  height: ${model.xai_hooks.reshape_height}
+  width: ${model.xai_hooks.reshape_width}
+  num_extra_tokens: 1                # CLS — adjust to 2 for DeiT (CLS+DIST)
+
+# ---- Generation params ----
+use_cuda: true
+aug_smooth: false                    # SmoothGrad-CAM (avg over augmentations)
+eigen_smooth: false                  # EigenCAM smoothing
+
+# ---- Post-processing ----
+postprocess:
+  relu: true                         # keep only positive contributions
+  normalize: minmax                  # minmax | zscore
+  upsample_mode: bilinear
+  upsample_to_input_size: true
+
+# ---- Visualization ----
+visualization:
+  colormap: jet                      # jet | viridis | hot
+  alpha: 0.5                         # overlay transparency
+  threshold: null                    # optional binary threshold
+
+# ---- Output ----
+output:
+  save_npy: true                     # save raw saliency arrays
+  save_overlays: true                # save .png overlays
+  save_dir: ${paths.results_dir}/xai/${model.name}/${xai.name}

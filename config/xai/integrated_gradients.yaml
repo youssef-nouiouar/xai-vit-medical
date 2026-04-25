@@ -1,0 +1,56 @@
+# =====================================================================
+# config/xai/integrated_gradients.yaml
+# Integrated Gradients — Sundararajan et al., ICML 2017
+# =====================================================================
+
+# @package xai
+
+name: integrated_gradients
+category: gradient_based
+applicable_to: [cnn, vit]
+library: captum
+
+# ---- Baseline strategy ----
+baseline:
+  type: black_image                  # black_image | white_image | random_noise | blurred_original | mean_image
+  # NOTE for medical imaging:
+  #   - X-ray: prefer blurred_original (black = informative)
+  #   - Dermoscopy: black_image OK
+  #   - CT: mean_hu_image
+  blur_sigma: 10                     # only used if type=blurred_original
+
+# ---- Approximation params ----
+n_steps: 50                          # 50 standard, 200 for high-precision
+internal_batch_size: 10              # process steps in mini-batches (memory)
+method: gausslegendre                # gausslegendre | riemann_left | riemann_right | riemann_middle | riemann_trapezoid
+
+# ---- Variants ----
+variants_to_compare:
+  - IntegratedGradients              # standard
+  - SmoothGradIG                     # IG + Gaussian noise averaging
+  - NoiseTunnel                      # Captum NoiseTunnel wrapper
+
+noise_tunnel:
+  nt_samples: 25
+  nt_samples_batch_size: 5
+  stdevs: 0.15
+  nt_type: smoothgrad                # smoothgrad | smoothgrad_sq | vargrad
+
+# ---- Post-processing ----
+postprocess:
+  reduce: sum                        # sum | mean — over channels
+  abs: false                         # take absolute value
+  normalize: minmax
+  positive_only: false               # keep negative attributions for analysis
+
+# ---- Visualization ----
+visualization:
+  colormap: RdBu_r                   # diverging — shows positive/negative
+  abs: false
+  percentile: 99                     # clip top 1% for display
+
+# ---- Output ----
+output:
+  save_npy: true
+  save_overlays: true
+  save_dir: ${paths.results_dir}/xai/${model.name}/${xai.name}

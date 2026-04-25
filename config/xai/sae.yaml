@@ -1,0 +1,119 @@
+# =====================================================================
+# config/xai/sae.yaml
+# Sparse Autoencoders — Contribution C1
+# Cunningham et al., ICLR 2024 ; Templeton et al., 2024 (Anthropic)
+# =====================================================================
+
+# @package xai
+
+name: sae
+category: mechanistic
+applicable_to: [vit_pure, vit_ssl]     # primary: DeiT-Base, DINOv2
+library: sae_lens                       # also custom for medical adaptation
+
+# ===== ARCHITECTURE =====
+architecture:
+  type: TopK                            # TopK | ReLU | JumpReLU | Gated
+  # TopK is recommended (Gao et al. 2024 "Scaling and Evaluating SAEs")
+
+  # Input dimension — auto-resolved from model
+  d_in: ${model.xai_hooks.sae_d_in}
+
+  # Hidden dimension — expansion factor 16x
+  expansion_factor: 16
+  d_sae: 12288                          # 768 * 16
+
+  # Sparsity — features active per input
+  k: 40                                 # for TopK; for ReLU use l1_coef instead
+  l1_coef: 1.0e-3                       # only used for ReLU-SAE
+
+# ===== TARGET LAYER =====
+target:
+  layer: ${model.xai_hooks.sae_target_layer}
+  # Common choices for ViT:
+  #   blocks.{i}.mlp        — MLP residual stream
+  #   blocks.{i}.attn       — attention output
+  #   blocks.{i}.resid_post — post-residual
+  hook_point: residual                  # residual | mlp_output | attn_output
+
+# ===== ACTIVATIONS COLLECTION =====
+activations:
+  num_batches: 1000                     # batches to collect activations from
+  batch_size: 64
+  total_samples: 64000                  # ~64k samples
+  shuffle: true
+  cache_to_disk: true
+  cache_path: ${paths.cache_dir}/activations/${model.name}/${xai.target.layer}
+  use_data_split: train
+
+# ===== TRAINING =====
+training:
+  optimizer:
+    name: Adam
+    lr: 5.0e-5
+    betas: [0.9, 0.999]
+
+  scheduler:
+    name: linear_warmup
+    warmup_steps: 1000
+    final_lr_ratio: 0.1
+
+  batch_size: 4096                      # SAE training batch
+  num_epochs: 10
+  loss: TopK_MSE                        # for TopK; MSE+L1 for ReLU
+
+  # Dead feature handling
+  dead_feature_threshold: 1.0e-6
+  dead_feature_window: 1000             # steps without activation
+  resample_dead_features: true
+  resample_steps: [25000, 50000, 75000]
+
+  # Initialization
+  init:
+    encoder: kaiming_uniform
+    decoder: encoder_transpose          # tied init then untied training
+    bias: zero
+
+# ===== EVALUATION METRICS =====
+evaluation:
+  metrics:
+    - L0                                # avg nonzero features per input
+    - reconstruction_loss               # MSE
+    - variance_explained                # R²
+    - feature_dead_ratio                # % features never active
+    - cross_entropy_diff                # CE original vs reconstructed
+
+  # Targets
+  targets:
+    L0: 40
+    variance_explained: 0.85            # > 85%
+    feature_dead_ratio_max: 0.05        # < 5% dead
+
+# ===== INTERPRETABILITY =====
+interpretability:
+  # For each feature, find top-K activating images
+  top_k_images_per_feature: 10
+  num_features_to_analyze: 1000        # subsample for quick analysis
+
+  # Validation
+  manual_validation: true               # require manual review of top features
+  expert_validation:
+    enabled: false                      # set True for clinical study
+    n_experts: 2                        # dermatologists
+    n_features_to_validate: 100
+    rating_scale: [1, 5]                # 1=meaningless, 5=clinically clear
+
+# ===== STEERABILITY (causal validation) =====
+steerability:
+  enabled: true
+  method: ablation                      # ablation | amplification
+  ablation_strength: -1.0               # multiplier for feature
+  amplification_strength: 2.0
+  n_test_samples: 500
+  metric: classification_accuracy_drop
+
+# ===== OUTPUT =====
+output:
+  save_dir: ${paths.sae_dir}/${model.name}/${xai.target.layer}
+  save_checkpoint_every: 5000
+  save_top_features: true               # save top-K images per feature

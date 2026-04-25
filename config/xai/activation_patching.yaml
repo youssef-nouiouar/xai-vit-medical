@@ -1,0 +1,136 @@
+# =====================================================================
+# config/xai/activation_patching.yaml
+# Activation Patching — Contribution C2
+# Heimersheim & Nanda, 2024 ; first medical adaptation
+# =====================================================================
+
+# @package xai
+
+name: activation_patching
+category: mechanistic
+applicable_to: [vit_pure, vit_ssl]      # primary: DeiT-Base, DINOv2
+library: transformer_lens               # + custom hooks for medical
+
+# ===== TASK DEFINITION =====
+task:
+  behavior: melanoma_vs_naevus          # binary discrimination task
+  metric: logit_difference              # logit(MEL) - logit(NV)
+  target_class_positive: 0              # MEL index
+  target_class_negative: 1              # NV index
+  n_samples: 500                        # clean / corrupt pairs
+
+# ===== CORRUPTION STRATEGIES =====
+# Define what "corrupted" input means — clinically meaningful
+corruptions:
+  enabled:
+    - lesion_masking
+    - artifact_removal
+    - null_baseline
+    - patch_shuffle
+    - horizontal_flip
+
+  # 1. Mask the lesion ROI (test if model uses lesion)
+  lesion_masking:
+    description: "Replace ROI by Gaussian noise"
+    mask_source: ground_truth_segmentation
+    fill_value: gaussian_noise
+    noise_std: 0.5
+
+  # 2. Remove artifact (test if model uses ruler — shortcut)
+  artifact_removal:
+    description: "Inpaint dermoscopic ruler"
+    method: telea                       # telea | ns | lama
+    detect_ruler: true                  # auto-detect or use mask
+
+  # 3. Null baseline (mean image of dataset)
+  null_baseline:
+    description: "Dataset mean image — reproducible baseline"
+    use_class_mean: false               # global mean
+
+  # 4. Patch shuffle (test spatial structure dependence)
+  patch_shuffle:
+    description: "Random permutation of 10% of patches"
+    shuffle_ratio: 0.1
+    patch_size: 16
+
+  # 5. Horizontal flip (test laterality bias)
+  horizontal_flip:
+    description: "Tests laterality bias"
+    axis: horizontal
+
+# ===== PATCHING VARIANTS =====
+patching:
+  variants:
+    - denoising                         # clean -> corrupt direction
+    - noising                           # corrupt -> clean direction
+    - attribution_patching              # gradient-based approximation (fast)
+
+  # Denoising: take clean activation, patch into corrupt forward pass
+  denoising:
+    direction: clean_to_corrupt
+    metric: recovery_score              # 1.0 = full recovery
+    # Use case: identify components SUFFICIENT for the behavior
+
+  # Noising: take corrupt activation, patch into clean forward pass
+  noising:
+    direction: corrupt_to_clean
+    metric: disruption_score
+    # Use case: identify components NECESSARY for the behavior
+
+  # Attribution patching (linearization — much faster)
+  attribution_patching:
+    enabled: true
+    speedup_factor: 100                 # ~100x faster than exact
+    use_for_initial_screening: true
+
+# ===== GRANULARITY =====
+granularity:
+  levels:
+    - layer                             # patch entire layer
+    - component                         # attn vs MLP
+    - head                              # individual attention head
+    - token                             # spatial patch
+    - neuron                            # individual neuron (very fine)
+
+  primary: component                    # main analysis level
+  secondary: head                       # for circuit discovery
+
+# ===== LAYERS TO PATCH =====
+layers:
+  list: ${model.xai_hooks.patching_layers}    # [0, 3, 6, 9, 11] for ViT-Base
+  components: ${model.xai_hooks.patching_components}
+  # Auto-resolved per model
+
+# ===== METRICS =====
+metrics:
+  primary: indirect_effect              # IE — main causal measure
+  # IE = (clean_metric - patched_metric) / (clean_metric - corrupt_metric)
+
+  # Thresholds for interpretation
+  thresholds:
+    significant: 0.1                    # IE > 0.1 = significant
+    shortcut_detected: 0.3              # IE > 0.3 on artifact = SHORTCUT
+
+  secondary:
+    - direct_effect
+    - kl_divergence
+    - logit_difference
+
+# ===== SHORTCUT DETECTION =====
+shortcut_detection:
+  enabled: true
+  artifacts_to_check:
+    - dermoscopic_ruler
+    - hospital_marker
+    - vignette_borders
+    - color_calibration_card
+
+  decision_rule: "IE(artifact_corruption) > 0.3"
+  report_per_layer: true
+
+# ===== OUTPUT =====
+output:
+  save_ie_maps: true                    # save 12x12 IE matrices for ViT-Base
+  save_dir: ${paths.results_dir}/xai/${model.name}/${xai.name}
+  save_layer_component_heatmap: true
+  save_per_corruption_breakdown: true

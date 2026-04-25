@@ -1,0 +1,83 @@
+# =====================================================================
+# config/model/swin_base.yaml
+# Swin-Base — Hierarchical Transformer (OPTIONAL Phase 1)
+# =====================================================================
+# Role: hierarchical ViT with windowed attention. OPTIONAL in Phase 1.
+# Train only if compute budget allows.
+# WARNING: Attention Rollout NOT directly applicable (windowed attn).
+#          Use Grad-CAM and LRP instead.
+# =====================================================================
+
+# @package model
+
+name: swin_base
+family: vit_hierarchical
+role: vit_hierarchical_optional
+
+# ---- timm config ----
+source: timm
+timm_name: swin_base_patch4_window7_224
+pretrained: true
+pretrained_cfg: ms_in22k_ft_in1k
+
+# ---- Architecture ----
+architecture:
+  num_classes: ${dataset.num_classes}
+  patch_size: 4
+  window_size: 7
+  embed_dim: 128
+  depths: [2, 2, 18, 2]
+  num_heads: [4, 8, 16, 32]
+  mlp_ratio: 4.0
+  qkv_bias: true
+  drop_rate: 0.0
+  drop_path_rate: 0.5
+
+# ---- Stages (hierarchy) ----
+stages:
+  stage_1: {resolution: [56, 56], channels: 128}
+  stage_2: {resolution: [28, 28], channels: 256}
+  stage_3: {resolution: [14, 14], channels: 512}
+  stage_4: {resolution: [7, 7],   channels: 1024}
+
+# ---- Input ----
+input:
+  image_size: 224
+  channels: 3
+
+# ---- XAI hooks ----
+xai_hooks:
+  gradcam_target_layer: "layers.3.blocks.1.norm2"
+  reshape_transform_required: true
+  reshape_height: 7                 # final stage is 7x7
+  reshape_width: 7
+  attention_supported: false        # WARNING: windowed, not global
+  rollout_supported: false          # NOT compatible
+  generic_attention_supported: false  # requires adaptation
+
+  # Mechanistic methods (LIMITED on Swin)
+  sae_target_layer: "layers.2.blocks.5.mlp"  # last block of stage 3
+  sae_d_in: 512                     # stage 3 dim
+  sae_supported: limited            # adaptation needed
+
+  patching_layers: [0, 1, 2, 3]     # stage indices
+  patching_supported: limited
+
+# ---- Training overrides ----
+training_overrides:
+  optimizer:
+    lr: 1.0e-5
+    weight_decay: 0.05
+  scheduler:
+    warmup_epochs: 5
+  llrd: 0.75
+  batch_size: 16
+  epochs: 30
+  gradient_clipping: 1.0
+
+# ---- Metadata ----
+metadata:
+  parameters_M: 88
+  paper: "Swin Transformer: Hierarchical Vision Transformer using Shifted Windows (Liu et al., ICCV 2021)"
+  arxiv: "https://arxiv.org/abs/2103.14030"
+  warning: "Attention-based XAI methods (Rollout, Generic Attention) require adaptation. Recommend Grad-CAM and LRP."

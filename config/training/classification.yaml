@@ -1,0 +1,93 @@
+# =====================================================================
+# config/training/classification.yaml
+# Training pipeline for classification (Phase 1)
+# =====================================================================
+
+# @package training
+
+task: classification
+
+# ---- Defaults (overridden by model.training_overrides) ----
+epochs: 30
+batch_size: 16
+
+# ---- Optimizer ----
+optimizer:
+  name: AdamW                    # AdamW for ViT, also fine for ResNet
+  lr: 1.0e-5                     # default — overridden by model
+  weight_decay: 0.05
+  betas: [0.9, 0.999]
+  eps: 1.0e-8
+
+  # Layer-wise LR decay (LLRD) — important for ViT fine-tuning
+  llrd:
+    enabled: false               # set True via model config
+    decay_rate: 0.75
+
+# ---- LR scheduler ----
+scheduler:
+  name: CosineAnnealingLR
+  warmup_epochs: 5
+  warmup_start_lr: 1.0e-7
+  min_lr: 1.0e-7
+  T_max: ${training.epochs}
+
+# ---- Loss ----
+loss:
+  name: CrossEntropyLoss         # CrossEntropyLoss | FocalLoss
+  label_smoothing: 0.1
+  class_weights: auto            # null | auto | manual list
+  # focal-specific (only used if name=FocalLoss)
+  focal_gamma: 2.0
+  focal_alpha: 0.25
+
+# ---- Mixed precision ----
+amp:
+  enabled: true
+  precision: ${hardware.precision}
+
+# ---- Gradient management ----
+grad:
+  clip_norm: 1.0
+  accumulation_steps: 1          # increase if VRAM-limited
+
+# ---- EMA (Exponential Moving Average) ----
+ema:
+  enabled: true
+  decay: 0.9999
+  update_after_step: 100
+
+# ---- Checkpointing ----
+checkpoint:
+  save_dir: ${paths.models_dir}
+  save_best: true
+  save_last: true
+  save_top_k: 3
+  monitor: val_auc_macro
+  mode: max
+
+# ---- Early stopping ----
+early_stopping:
+  enabled: true
+  monitor: val_auc_macro
+  mode: max
+  patience: 10
+  min_delta: 0.001
+
+# ---- Validation ----
+validation:
+  every_n_epochs: 1
+  use_ema: true                  # validate EMA model
+
+# ---- Test ----
+test:
+  enabled: true                  # run on held-out test after training
+  use_ema: true
+  tta_enabled: false             # turn on for final eval
+
+# ---- Logging frequency ----
+logging:
+  log_every_n_steps: 50
+  log_grad_norm: true
+  log_lr: true
+  log_predictions: true          # save predictions CSV

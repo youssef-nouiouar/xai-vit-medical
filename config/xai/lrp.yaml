@@ -1,0 +1,66 @@
+# =====================================================================
+# config/xai/lrp.yaml
+# Layer-wise Relevance Propagation — Bach et al., 2015
+# Adapted for ViT — Chefer et al., 2021
+# =====================================================================
+
+# @package xai
+
+name: lrp
+category: propagation_based
+applicable_to: [cnn, vit]              # works for both with proper rules
+library: zennit                         # zennit > captum for LRP flexibility
+
+# ---- LRP rules per layer type ----
+# Composite strategy: different rules for different layers
+rules:
+  input_layer: zb                      # LRP-zB (bounded input)
+  conv_layers: gamma                   # LRP-gamma
+  fc_layers: epsilon                   # LRP-epsilon
+  attention: alpha_beta                # LRP-alpha-beta for attention
+  layer_norm: identity                 # pass-through
+  gelu: identity                       # treat as ReLU-like
+
+# ---- Rule parameters ----
+gamma: 0.25                            # LRP-gamma stabilization
+epsilon: 0.25                          # LRP-epsilon stabilization
+alpha: 2.0                             # LRP-alpha-beta
+beta: 1.0                              # alpha + beta = 1
+
+# ---- ViT-specific (Chefer 2021) ----
+vit_specific:
+  attention_rule: custom_attention_lrp  # handles softmax
+  skip_layernorm: true
+  handle_softmax: detach
+  cls_token_only: true                  # propagate from CLS token
+
+# ---- Variants to compare ----
+variants_to_compare:
+  - LRP-epsilon
+  - LRP-gamma
+  - LRP-alpha_beta
+  - LRP-composite                       # mix optimal — RECOMMENDED
+
+# ---- Input bounds (for LRP-zB) ----
+input_bounds:
+  low: -2.118                          # ImageNet normalized min
+  high: 2.640                           # ImageNet normalized max
+
+# ---- Post-processing ----
+postprocess:
+  reduce: sum                          # sum over channels
+  abs: false                           # keep sign (positive = supports class)
+  normalize: minmax
+  positive_only: false
+
+# ---- Visualization ----
+visualization:
+  colormap: RdBu_r                     # diverging
+  alpha: 0.5
+  symmetric: true                       # symmetric around 0
+
+# ---- Output ----
+output:
+  save_npy: true
+  save_overlays: true
+  save_dir: ${paths.results_dir}/xai/${model.name}/${xai.name}
