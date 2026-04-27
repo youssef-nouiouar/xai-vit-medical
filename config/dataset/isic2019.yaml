@@ -3,7 +3,7 @@
 # ISIC 2019 — Skin lesion classification (8 classes)
 # =====================================================================
 # Source: https://challenge2019.isic-archive.com/
-# Total: ~25,331 dermoscopic images
+# Total: ~33569 dermoscopic images
 # =====================================================================
 
 # @package dataset
@@ -30,10 +30,12 @@ class_weights: auto
 # ---- Paths ----
 paths:
   root: ${paths.data_dir}/isic2019
-  images: ${paths.data_dir}/isic2019/images
-  labels_csv: ${paths.data_dir}/isic2019/ISIC_2019_Training_GroundTruth.csv
-  metadata_csv: ${paths.data_dir}/isic2019/ISIC_2019_Training_Metadata.csv
-  splits_dir: ${paths.data_dir}/isic2019/splits
+  images training: ${paths.data_dir}/isic2019/ISIC_2019_Training_Input/
+  labels_training_csv: ${paths.data_dir}/isic2019/ISIC_2019_Training_GroundTruth.csv
+
+  images test: ${paths.data_dir}/isic2019/ISIC_2019_Test_Input/
+  labels_test_csv: ${paths.data_dir}/isic2019/ISIC_2019_Test_GroundTruth.csv
+
 
 # ---- Image specs ----
 image:
@@ -43,12 +45,10 @@ image:
 
 # ---- Splits (patient-level — NEVER image-level) ----
 splits:
-  strategy: stratified_group_kfold     # GroupKFold by patient_id
-  n_folds: 5
-  current_fold: 0                       # which fold to use as val (0..n_folds-1)
-  test_ratio: 0.15                      # held-out test set
+  strategy: stratified_split            # image-level stratified split
+  val_ratio: 0.1
+  test_ratio: 0.1
   random_state: ${seed}
-  group_by: patient_id                  # CRITICAL — no patient leakage
   stratify_by: diagnosis
 
 # ---- Preprocessing ----

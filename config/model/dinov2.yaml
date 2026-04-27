@@ -58,18 +58,19 @@ feature_extractor:
 
 # ---- XAI hooks ----
 xai_hooks:
-  gradcam_target_layer: "blocks.11.norm1"
+  # Paths relatifs à DINOv2Classifier (backbone. prefix obligatoire)
+  gradcam_target_layer: "backbone.blocks.11.norm1"
   reshape_transform_required: true
   reshape_height: 16               # (224/14) = 16
   reshape_width: 16
   num_extra_tokens: 1              # [CLS] only
-  attention_layers: "blocks.{i}.attn"
+  attention_layers: "backbone.blocks.{i}.attn"
   attention_supported: true
   rollout_supported: true
   generic_attention_supported: true
 
   # SAE — Contribution C1 (PRIMARY TARGET — H2 hypothesis)
-  sae_target_layer: "blocks.8.mlp"
+  sae_target_layer: "backbone.blocks.8.mlp"
   sae_d_in: 768
 
   # Activation Patching — Contribution C2 (PRIMARY TARGET)
