@@ -87,8 +87,15 @@ class ISICDataset(Dataset):
             if self.split == 'test':
                 self.data = test_df_official
                 self.image_folder = self.image_dir_test
-                # Remove UNK column if it exists in test_df_official
+                # Filter UNK images BEFORE dropping the column.
+                # UNK=1 means the image has no valid label among the 8 classes.
+                # Without this filter, argmax over all-zero rows silently assigns label 0 (MEL).
                 if 'UNK' in self.data.columns:
+                    n_before = len(self.data)
+                    self.data = self.data[self.data['UNK'] != 1].reset_index(drop=True)
+                    n_removed = n_before - len(self.data)
+                    if n_removed:
+                        logger.info(f'Official test set: removed {n_removed} UNK images ({len(self.data)} valid remain)')
                     self.data = self.data.drop(columns=['UNK'])
             else: # 'train' or 'val' split from the training data
                 # Drop UNK column from training data
