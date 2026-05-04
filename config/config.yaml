@@ -9,7 +9,7 @@
 
 defaults:
   - _self_
-  - dataset: isic2019
+  - dataset: crc_histology
   - model: vit_base                  # default — change via CLI
   - training: classification
   - xai: null                        # only set when running XAI scripts

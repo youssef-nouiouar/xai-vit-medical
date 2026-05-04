@@ -8,7 +8,7 @@ priority is C1 (SAE) and C2 (Activation Patching). Implement only
 after C1 and C2 are complete and validated.
 
 Goal: identify the minimal computational sub-graph in a ViT that
-implements the diagnostic behavior (e.g., melanoma vs nevus on ISIC).
+implements the diagnostic behavior (e.g., tumor vs normal tissue on CRC histology).
 """
 
 from __future__ import annotations

@@ -1,0 +1,63 @@
+# =====================================================================
+# config/dataset/crc_histology.yaml
+# Colorectal Cancer Histology (NCT-CRC-HE-100K + CRC-VAL-HE-7K)
+# =====================================================================
+# Folder structure expected:
+#   data/NCT-CRC-HE-100K/{ADI,BACK,DEB,LYM,MUC,MUS,NORM,STR,TUM}/
+#   data/CRC-VAL-HE-7K/{ADI,BACK,DEB,LYM,MUC,MUS,NORM,STR,TUM}/
+# =====================================================================
+
+# @package dataset
+
+name: crc_histology
+task: classification
+modality: histology
+num_classes: 9
+
+# ---- Class names (MUST match folder names) ----
+classes:
+  - ADI
+  - BACK
+  - DEB
+  - LYM
+  - MUC
+  - MUS
+  - NORM
+  - STR
+  - TUM
+
+# ---- Paths ----
+paths:
+  trainval_root: ${paths.data_dir}/NCT-CRC-HE-100K
+  test_root: ${paths.data_dir}/CRC-VAL-HE-7K
+
+# ---- Image specs ----
+image:
+  size: 224
+  channels: 3
+
+# ---- Splits ----
+splits:
+  strategy: stratified_split
+  val_ratio: 0.1
+  random_state: ${seed}
+  group_by: null
+
+# ---- Preprocessing ----
+preprocessing:
+  normalize:
+    mean: [0.485, 0.456, 0.406]
+    std:  [0.229, 0.224, 0.225]
+
+# ---- Augmentations (training only) ----
+augmentation:
+  enabled: true
+  library: albumentations
+
+# ---- Dataloader ----
+dataloader:
+  batch_size: 32
+  num_workers: ${hardware.num_workers}
+  pin_memory: ${hardware.pin_memory}
+  persistent_workers: true
+  drop_last: true

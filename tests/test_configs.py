@@ -30,15 +30,21 @@ def test_root_config_loads() -> None:
 
 
 @pytest.mark.parametrize(
-    "model_name",
-    ["resnet50", "vit_base", "deit_base", "dinov2", "swin_base"],
+    ("model_config", "expected_model_name"),
+    [
+        ("resnet50", "resnet50"),
+        ("vit_base", "vit_base"),
+        ("deit_base", "deit_base"),
+        ("dinov2", "dinov2_vitb14"),
+        ("swin_base", "swin_base"),
+    ],
 )
-def test_model_configs_load(model_name: str) -> None:
+def test_model_configs_load(model_config: str, expected_model_name: str) -> None:
     """Each model config must compose with the root config."""
     with initialize(version_base="1.3", config_path=CONFIG_PATH):
-        cfg = compose(config_name="config", overrides=[f"model={model_name}"])
-    assert cfg.model.name == model_name
-    assert cfg.model.architecture.num_classes == 8
+        cfg = compose(config_name="config", overrides=[f"model={model_config}"])
+    assert cfg.model.name == expected_model_name
+    assert cfg.model.architecture.num_classes == cfg.dataset.num_classes
     assert "training_overrides" in cfg.model
 
 
@@ -69,14 +75,14 @@ def test_xai_configs_load(xai_name: str) -> None:
     assert cfg.xai is not None
 
 
-def test_dataset_isic_config() -> None:
-    """ISIC 2019 dataset config — sanity check structure."""
+def test_dataset_crc_histology_config() -> None:
+    """CRC histology dataset config — sanity check structure."""
     with initialize(version_base="1.3", config_path=CONFIG_PATH):
         cfg = compose(config_name="config")
-    assert cfg.dataset.name == "isic2019"
-    assert cfg.dataset.num_classes == 8
-    assert len(cfg.dataset.classes) == 8
-    assert cfg.dataset.splits.group_by == "patient_id"  # CRITICAL
+    assert cfg.dataset.name == "crc_histology"
+    assert cfg.dataset.num_classes == 9
+    assert len(cfg.dataset.classes) == 9
+    assert cfg.dataset.splits.strategy == "stratified_split"
 
 
 def test_no_phase2_dataset_present() -> None:

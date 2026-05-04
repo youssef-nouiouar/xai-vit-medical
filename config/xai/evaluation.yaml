@@ -42,19 +42,19 @@ localization:
 
   # Pointing Game
   pointing_game:
-    enabled: true
+    enabled: false
     criterion: argmax_in_mask          # argmax(saliency) in GT mask
-    requires_ground_truth_mask: true   # ISIC 2019 has segmentation masks
+    requires_ground_truth_mask: false
 
   # IoU with ground truth lesion mask
   iou:
-    enabled: true
+    enabled: false
     thresholds: [0.1, 0.3, 0.5, 0.7]
     aggregation: auc                    # area under thresholds curve
 
   # Energy in lesion
   energy_in_roi:
-    enabled: true
+    enabled: false
     formula: "sum(saliency in ROI) / sum(saliency)"
 
 # ===== SANITY CHECKS (Adebayo et al. NeurIPS 2018) =====
@@ -99,7 +99,7 @@ sanity_checks:
 
 # ===== AGGREGATION & REPORTING =====
 aggregation:
-  per_class: true                       # report per ISIC class
+  per_class: true
   per_method: true
   per_model: true
   bootstrap_ci: true                    # 95% confidence intervals

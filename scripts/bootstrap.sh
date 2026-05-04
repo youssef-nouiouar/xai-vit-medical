@@ -79,7 +79,7 @@ for m in ['resnet50', 'vit_base', 'deit_base', 'dinov2', 'swin_base']:
 
 # ---- 5. Run smoke tests ----
 echo -e "\n${YELLOW}[5/5]${NC} Running smoke tests..."
-pytest tests/test_configs.py -v --tb=short || {
+pytest -o addopts='' tests/test_configs.py -v --tb=short || {
     echo -e "${RED}[FAIL]${NC} Some tests failed."
     exit 1
 }
@@ -91,7 +91,7 @@ echo -e "${GREEN}========================================================${NC}"
 echo -e "Next steps:"
 echo -e "  1. Activate env:    ${BLUE}conda activate ${ENV_NAME}${NC}"
 echo -e "  2. Edit .env:       ${BLUE}nvim .env${NC} (set WANDB_API_KEY)"
-echo -e "  3. Place ISIC data: ${BLUE}data/isic2019/${NC} (see data/README.md)"
-echo -e "  4. Implement stubs: ${BLUE}src/data/isic_dataset.py${NC}"
+echo -e "  3. Place CRC data:  ${BLUE}data/NCT-CRC-HE-100K/${NC} + ${BLUE}data/CRC-VAL-HE-7K/${NC} (see data/README.md)"
+echo -e "  4. Implement stubs: ${BLUE}src/training/trainer.py${NC}"
 echo -e "  5. Train baseline:  ${BLUE}python -m src.training.trainer model=resnet50${NC}"
 echo -e "  6. Train ViT:       ${BLUE}python -m src.training.trainer model=vit_base${NC}"

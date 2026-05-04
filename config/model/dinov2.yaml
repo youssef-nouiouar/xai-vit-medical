@@ -2,8 +2,7 @@
 # config/model/dinov2.yaml
 # DINOv2-ViT-B/14 — Self-Supervised Learning
 # =====================================================================
-# Role: tests H2 — SSL produces more interpretable features than
-# supervised. Uses frozen backbone + linear probe by default
+# Role: Self-supervised ViT backbone. Uses frozen backbone + linear probe by default
 # (often outperforms full fine-tuning in medical imaging).
 # =====================================================================
 
@@ -69,7 +68,7 @@ xai_hooks:
   rollout_supported: true
   generic_attention_supported: true
 
-  # SAE — Contribution C1 (PRIMARY TARGET — H2 hypothesis)
+  # SAE — Contribution C1 (PRIMARY TARGET)
   sae_target_layer: "backbone.blocks.8.mlp"
   sae_d_in: 768
 
@@ -93,6 +92,6 @@ training_overrides:
 # ---- Metadata ----
 metadata:
   parameters_M: 86
-  parameters_trainable_frozen: 0.006   # only the linear head (768*8 + 8 ≈ 6k)
+  parameters_trainable_frozen: 0.007   # only the linear head (768*9 + 9 ≈ 6.9k)
   paper: "DINOv2: Learning Robust Visual Features without Supervision (Oquab et al., 2023)"
   arxiv: "https://arxiv.org/abs/2304.07193"

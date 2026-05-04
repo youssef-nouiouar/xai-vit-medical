@@ -22,7 +22,7 @@ class DINOv2Classifier(nn.Module):
     """DINOv2-ViT-B/14 backbone + classification head.
 
     Args:
-        num_classes:  Number of output classes (8 for ISIC 2019).
+        num_classes:  Number of output classes (9 for CRC histology).
         usage_mode:   One of ``"frozen_linear_probe"``, ``"full_finetune"``,
                       ``"feature_extractor"``.
         head_dropout: Dropout probability before the linear head.
@@ -36,7 +36,7 @@ class DINOv2Classifier(nn.Module):
 
     def __init__(
         self,
-        num_classes: int = 8,
+        num_classes: int = 9,
         usage_mode: str = "frozen_linear_probe",
         head_dropout: float = 0.0,
         hub_model: str = "dinov2_vitb14",
