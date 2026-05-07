@@ -199,12 +199,12 @@ def run_attention_rollout(
     # Upsample to input resolution
     if cfg.postprocess.upsample_to_input_size:
         input_h, input_w = images.shape[-2:]
-        saliency = F.interpolate(
-            saliency.unsqueeze(1),
-            size=(input_h, input_w),
-            mode=cfg.postprocess.upsample_mode,
-            align_corners=False,
-        ).squeeze(1)
+        upsample_mode = cfg.postprocess.upsample_mode
+        # align_corners is only valid for bilinear/bicubic/linear/trilinear
+        interp_kwargs: dict = {"size": (input_h, input_w), "mode": upsample_mode}
+        if upsample_mode in {"bilinear", "bicubic", "linear", "trilinear"}:
+            interp_kwargs["align_corners"] = False
+        saliency = F.interpolate(saliency.unsqueeze(1), **interp_kwargs).squeeze(1)
 
     # Normalize to [0, 1] per sample
     if cfg.postprocess.normalize == "minmax":

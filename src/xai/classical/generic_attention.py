@@ -88,8 +88,11 @@ class GenericAttentionExplainer:
             self.attention_maps.append(out.detach())
 
         def _save_grad(module: nn.Module, grad_in: Any, grad_out: tuple) -> None:
-            # grad_out[0] shape: (B, H, N, N)
-            self.attention_grads.append(grad_out[0].detach())
+            # grad_out[0] shape: (B, H, N, N); can be None if the branch is detached
+            g = grad_out[0]
+            if g is None:
+                return
+            self.attention_grads.append(g.detach())
 
         for i in range(self.num_layers):
             layer_path = self.pattern.format(i=i)
@@ -129,8 +132,11 @@ class GenericAttentionExplainer:
         self.attention_grads = []
 
         # Forward
+        self.model.eval()
         self.model.zero_grad()
         output = self.model(image)
+        if hasattr(output, "logits"):
+            output = output.logits
         if isinstance(output, tuple):
             output = output[0]
 
@@ -151,6 +157,18 @@ class GenericAttentionExplainer:
         # Reverse — backward hooks fire in reverse layer order
         attns = self.attention_maps  # (B, H, N, N) per layer, forward order
         grads = list(reversed(self.attention_grads))  # align with forward order
+
+        if len(grads) == 0:
+            raise RuntimeError(
+                "No attention gradients were captured. This usually means the model "
+                "uses torch.nn.functional.scaled_dot_product_attention (SDPA) instead "
+                "of an explicit attn_drop module. Disable SDPA or use Attention Rollout."
+            )
+        if len(grads) != len(attns):
+            raise RuntimeError(
+                f"Captured {len(attns)} attention maps but {len(grads)} gradient maps. "
+                "Hooks may have partially failed. Check the attention_layer_pattern."
+            )
 
         # Get N from first layer
         B, H, N, _ = attns[0].shape  # noqa: N806
@@ -228,11 +246,12 @@ def run_generic_attention(
 
     # Upsample to input resolution
     input_h, input_w = images.shape[-2:]
+    upsample_mode = cfg.postprocess.upsample_mode
+    interp_kwargs: dict = {"size": (input_h, input_w), "mode": upsample_mode}
+    if upsample_mode in {"bilinear", "bicubic", "linear", "trilinear"}:
+        interp_kwargs["align_corners"] = False
     saliency_batch = F.interpolate(
-        saliency_batch.unsqueeze(1),
-        size=(input_h, input_w),
-        mode=cfg.postprocess.upsample_mode,
-        align_corners=False,
+        saliency_batch.unsqueeze(1), **interp_kwargs
     ).squeeze(1)
 
     # Min-max normalize per image
