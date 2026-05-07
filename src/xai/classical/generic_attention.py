@@ -47,7 +47,19 @@ class GenericAttentionExplainer:
         num_layers: int | None = None,
     ) -> None:
         self.model = model
-        self.pattern = attention_layer_pattern
+
+        # Auto-adjust pattern for the DINOv2 wrapper (DINOv2Classifier)
+        pattern = attention_layer_pattern
+        if (
+            attention_layer_pattern == "blocks.{i}.attn.attn_drop"
+            and not hasattr(model, "blocks")
+            and hasattr(model, "backbone")
+            and hasattr(model.backbone, "blocks")
+        ):
+            pattern = "backbone.blocks.{i}.attn.attn_drop"
+            logger.info("GenericAttentionExplainer: using DINOv2 backbone attention hooks")
+
+        self.pattern = pattern
         self.num_layers = num_layers or self._detect_num_layers()
 
         self.attention_maps: list[torch.Tensor] = []
