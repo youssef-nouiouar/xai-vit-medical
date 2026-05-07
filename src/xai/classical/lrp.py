@@ -44,6 +44,7 @@ def _build_captum_rule_dict(cfg: Any) -> dict[type[nn.Module], Any]:
         nn.LayerNorm: IdentityRule(),
         nn.GELU: IdentityRule(),
         nn.Dropout: IdentityRule(),
+        nn.Identity: IdentityRule(),
         nn.ReLU: Alpha1_Beta0_Rule(),
     }
 
@@ -90,7 +91,7 @@ def run_lrp(
             f"targets length ({len(targets)}) must match batch size ({images.shape[0]})"
         )
 
-    model.eval()
+    model = model.to(images.device).eval()
 
     # Captum LRP traverses module internals, so keep an nn.Module wrapper.
     class _LogitsWrapper(nn.Module):

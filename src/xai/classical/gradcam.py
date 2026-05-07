@@ -99,6 +99,8 @@ def run_gradcam(
     )
     from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 
+    model = model.to(images.device).eval()
+
     cam_classes = {
         "GradCAM": GradCAM,
         "GradCAMPlusPlus": GradCAMPlusPlus,

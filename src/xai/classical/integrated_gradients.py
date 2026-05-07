@@ -78,7 +78,7 @@ def run_integrated_gradients(
             f"targets length ({len(targets)}) must match batch size ({images.shape[0]})"
         )
 
-    model.eval()
+    model = model.to(images.device).eval()
 
     def _forward(x: torch.Tensor) -> torch.Tensor:
         out = model(x)
