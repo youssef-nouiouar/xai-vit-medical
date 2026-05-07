@@ -92,31 +92,42 @@ def run_lrp(
                 return out[0]
             return out
 
-    wrapped = _LogitsWrapper(model)
-    # Rules must be set on modules before constructing LRP.
-    _apply_lrp_rules(wrapped, cfg)
-    lrp = LRP(wrapped)
+    targets_t = torch.tensor(targets, device=images.device)
 
+    # ---- Attempt 1: proper Captum LRP ----
+    lrp_err: Exception | None = None
+    rel = None
     try:
-        rel = lrp.attribute(
-            images,
-            target=torch.tensor(targets, device=images.device),
-        )  # (B, C, H, W)
+        # Use a fresh wrapper each time so a failed LRP attempt cannot
+        # leave stale hooks/state that would poison the fallback path.
+        wrapped_lrp = _LogitsWrapper(model)
+        _apply_lrp_rules(wrapped_lrp, cfg)
+        lrp = LRP(wrapped_lrp)
+        rel = lrp.attribute(images, target=targets_t)  # (B, C, H, W)
     except Exception as e:  # noqa: BLE001
-        # Captum LRP cannot trace through residual skip connections (ResNet)
-        # or certain Transformer ops. Fall back to Gradient × Input, which is
-        # a valid LRP approximation under the z^+ rule (Kindermans et al., 2016).
+        lrp_err = e
         logger.warning(
-            f"Captum LRP failed ({type(e).__name__}: {e}). "
-            "Falling back to Gradient × Input (InputXGradient). "
-            "This is a valid LRP approximation for models with skip connections."
+            f"Captum LRP failed ({type(e).__name__}). "
+            "This is expected for ResNet (residual skip connections are not "
+            "nn.Module ops — Captum cannot trace through them). "
+            "Falling back to Gradient × Input, a valid LRP approximation "
+            "under the z^+ rule (Kindermans et al., 2016)."
         )
-        ixg = InputXGradient(wrapped)
-        images_g = images.detach().requires_grad_(True)
-        rel = ixg.attribute(
-            images_g,
-            target=torch.tensor(targets, device=images.device),
-        )
+
+    # ---- Attempt 2: Gradient × Input fallback ----
+    if rel is None:
+        try:
+            # Fresh wrapper — isolated from the failed LRP attempt above.
+            wrapped_ixg = _LogitsWrapper(model)
+            ixg = InputXGradient(wrapped_ixg)
+            images_g = images.detach().requires_grad_(True)
+            rel = ixg.attribute(images_g, target=targets_t)  # (B, C, H, W)
+        except Exception as ixg_err:  # noqa: BLE001
+            raise RuntimeError(
+                f"Both Captum LRP and Gradient×Input fallback failed.\n"
+                f"  LRP error        : {lrp_err}\n"
+                f"  Gradient×Input   : {ixg_err}"
+            ) from ixg_err
 
     # ---- Post-process ----
     reduce = str(cfg.postprocess.reduce)
