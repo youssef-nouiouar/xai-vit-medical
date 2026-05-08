@@ -223,6 +223,12 @@ def run_generic_attention(
     """
     import torch.nn.functional as F
 
+    # Backward hooks only fire when the input is part of the computation graph.
+    # For frozen-backbone models (e.g. DINOv2 linear probe) all parameters
+    # have requires_grad=False, so we must enable grad on the input itself.
+    if not images.requires_grad:
+        images = images.detach().requires_grad_(True)
+
     explainer = GenericAttentionExplainer(model)
     height = cfg.postprocess.reshape_height
     width = cfg.postprocess.reshape_width
