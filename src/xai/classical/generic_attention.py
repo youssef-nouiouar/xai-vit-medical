@@ -26,6 +26,33 @@ import torch.nn as nn
 from loguru import logger
 
 
+def _disable_fused_attn(model: nn.Module) -> None:
+    """Set fused_attn=False on every attention block so attn_drop hooks fire.
+
+    Newer timm ViTs use F.scaled_dot_product_attention (fused/SDPA) by
+    default, which bypasses the explicit attn_drop module. This function
+    switches each block back to the explicit softmax path.
+    """
+    blocks = None
+    if hasattr(model, "blocks"):
+        blocks = model.blocks
+    elif hasattr(model, "backbone") and hasattr(model.backbone, "blocks"):
+        blocks = model.backbone.blocks
+
+    if blocks is None:
+        return
+
+    disabled = 0
+    for block in blocks:
+        attn = getattr(block, "attn", None)
+        if attn is not None and hasattr(attn, "fused_attn"):
+            attn.fused_attn = False
+            disabled += 1
+
+    if disabled:
+        logger.debug(f"Disabled fused_attn on {disabled} attention blocks")
+
+
 class GenericAttentionExplainer:
     """Explainer that registers hooks for attention + gradients.
 
@@ -66,6 +93,8 @@ class GenericAttentionExplainer:
         self.attention_grads: list[torch.Tensor] = []
         self.handles: list[Any] = []
 
+        # Must disable SDPA before registering hooks so attn_drop fires
+        _disable_fused_attn(model)
         self._register_hooks()
 
     def _detect_num_layers(self) -> int:

@@ -93,6 +93,33 @@ def attention_rollout(
     return rollout
 
 
+def _disable_fused_attn(model: Any) -> None:
+    """Set fused_attn=False on every attention block so attn_drop hooks fire.
+
+    Newer timm ViTs use F.scaled_dot_product_attention (fused/SDPA) by
+    default, which bypasses the explicit attn_drop module. This function
+    switches each block back to the explicit softmax path.
+    """
+    blocks = None
+    if hasattr(model, "blocks"):
+        blocks = model.blocks
+    elif hasattr(model, "backbone") and hasattr(model.backbone, "blocks"):
+        blocks = model.backbone.blocks
+
+    if blocks is None:
+        return
+
+    disabled = 0
+    for block in blocks:
+        attn = getattr(block, "attn", None)
+        if attn is not None and hasattr(attn, "fused_attn"):
+            attn.fused_attn = False
+            disabled += 1
+
+    if disabled:
+        logger.debug(f"Disabled fused_attn on {disabled} attention blocks")
+
+
 def run_attention_rollout(
     model: Any,
     images: torch.Tensor,
@@ -135,6 +162,11 @@ def run_attention_rollout(
         num_layers = len(model.backbone.blocks)
     else:
         raise ValueError("Cannot infer transformer depth for attention rollout")
+
+    # Disable fused/SDPA attention so attn_drop hooks fire.
+    # Newer timm ViTs use F.scaled_dot_product_attention by default,
+    # which bypasses the explicit attn_drop module entirely.
+    _disable_fused_attn(model)
 
     attentions: list[torch.Tensor] = []
     handles: list[Any] = []
