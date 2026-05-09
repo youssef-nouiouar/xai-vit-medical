@@ -1,0 +1,8 @@
+{
+  "method": "lrp",
+  "n_images": 450,
+  "accuracy": 0.9133333333333333,
+  "mean_insertion_auc": 0.3656391774714788,
+  "mean_deletion_auc": 0.3107973922711018,
+  "mean_faithfulness": 0.05484178520037697
+}

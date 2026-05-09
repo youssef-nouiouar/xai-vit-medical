@@ -1,0 +1,9 @@
+{
+  "model": "deit_base",
+  "method": "lrp",
+  "n_images": 450,
+  "accuracy": 0.9444444444444444,
+  "mean_insertion_auc": 0.5865234864671152,
+  "mean_deletion_auc": 0.5708876958306323,
+  "mean_faithfulness": 0.015635790636482905
+}

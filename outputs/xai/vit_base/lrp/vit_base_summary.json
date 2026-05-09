@@ -1,0 +1,9 @@
+{
+  "model": "vit_base",
+  "method": "lrp",
+  "n_images": 450,
+  "accuracy": 0.9266666666666666,
+  "mean_insertion_auc": 0.471795112478863,
+  "mean_deletion_auc": 0.37776080437919785,
+  "mean_faithfulness": 0.09403430809966518
+}

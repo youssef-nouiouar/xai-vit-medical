@@ -1,0 +1,9 @@
+{
+  "model": "vit_base",
+  "method": "generic_attention",
+  "n_images": 450,
+  "accuracy": 0.9266666666666666,
+  "mean_insertion_auc": 0.6619747732673429,
+  "mean_deletion_auc": 0.38597808345621193,
+  "mean_faithfulness": 0.27599668981113096
+}

@@ -1,0 +1,26 @@
+[
+  {
+    "method": "gradcam",
+    "n_images": 450,
+    "accuracy": 0.9133333333333333,
+    "mean_insertion_auc": 0.7573803735961258,
+    "mean_deletion_auc": 0.559581690028114,
+    "mean_faithfulness": 0.19779868356801178
+  },
+  {
+    "method": "integrated_gradients",
+    "n_images": 450,
+    "accuracy": 0.9133333333333333,
+    "mean_insertion_auc": 0.3817682222307414,
+    "mean_deletion_auc": 0.2868474560511025,
+    "mean_faithfulness": 0.0949207661796389
+  },
+  {
+    "method": "lrp",
+    "n_images": 450,
+    "accuracy": 0.9133333333333333,
+    "mean_insertion_auc": 0.3656391774714788,
+    "mean_deletion_auc": 0.3107973922711018,
+    "mean_faithfulness": 0.05484178520037697
+  }
+]

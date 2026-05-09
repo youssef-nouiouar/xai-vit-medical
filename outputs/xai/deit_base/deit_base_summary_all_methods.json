@@ -1,0 +1,47 @@
+[
+  {
+    "model": "deit_base",
+    "method": "gradcam",
+    "n_images": 450,
+    "accuracy": 0.9444444444444444,
+    "mean_insertion_auc": 0.8928064086763584,
+    "mean_deletion_auc": 0.6988968332975475,
+    "mean_faithfulness": 0.19390957537881093
+  },
+  {
+    "model": "deit_base",
+    "method": "integrated_gradients",
+    "n_images": 450,
+    "accuracy": 0.9444444444444444,
+    "mean_insertion_auc": 0.6154762350036432,
+    "mean_deletion_auc": 0.5221389724093922,
+    "mean_faithfulness": 0.09333726259425101
+  },
+  {
+    "model": "deit_base",
+    "method": "attention_rollout",
+    "n_images": 450,
+    "accuracy": 0.9444444444444444,
+    "mean_insertion_auc": 0.8398019082777661,
+    "mean_deletion_auc": 0.8376424528059518,
+    "mean_faithfulness": 0.0021594554718142867
+  },
+  {
+    "model": "deit_base",
+    "method": "generic_attention",
+    "n_images": 450,
+    "accuracy": 0.9444444444444444,
+    "mean_insertion_auc": 0.9119458735093073,
+    "mean_deletion_auc": 0.6603726419835538,
+    "mean_faithfulness": 0.2515732315257535
+  },
+  {
+    "model": "deit_base",
+    "method": "lrp",
+    "n_images": 450,
+    "accuracy": 0.9444444444444444,
+    "mean_insertion_auc": 0.5865234864671152,
+    "mean_deletion_auc": 0.5708876958306323,
+    "mean_faithfulness": 0.015635790636482905
+  }
+]

@@ -1,0 +1,9 @@
+{
+  "model": "deit_base",
+  "method": "generic_attention",
+  "n_images": 450,
+  "accuracy": 0.9444444444444444,
+  "mean_insertion_auc": 0.9119458735093073,
+  "mean_deletion_auc": 0.6603726419835538,
+  "mean_faithfulness": 0.2515732315257535
+}

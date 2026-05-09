@@ -1,0 +1,9 @@
+{
+  "model": "vit_base",
+  "method": "gradcam",
+  "n_images": 450,
+  "accuracy": 0.9266666666666666,
+  "mean_insertion_auc": 0.6121621138001365,
+  "mean_deletion_auc": 0.3742912999312322,
+  "mean_faithfulness": 0.2378708138689043
+}

@@ -1,0 +1,9 @@
+{
+  "model": "deit_base",
+  "method": "integrated_gradients",
+  "n_images": 450,
+  "accuracy": 0.9444444444444444,
+  "mean_insertion_auc": 0.6154762350036432,
+  "mean_deletion_auc": 0.5221389724093922,
+  "mean_faithfulness": 0.09333726259425101
+}

@@ -1,0 +1,9 @@
+{
+  "model": "swin_base",
+  "method": "integrated_gradients",
+  "n_images": 450,
+  "accuracy": 0.9577777777777777,
+  "mean_insertion_auc": 0.5900660592684466,
+  "mean_deletion_auc": 0.556003581847909,
+  "mean_faithfulness": 0.034062477420537585
+}

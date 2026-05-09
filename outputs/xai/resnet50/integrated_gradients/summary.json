@@ -1,0 +1,8 @@
+{
+  "method": "integrated_gradients",
+  "n_images": 450,
+  "accuracy": 0.9133333333333333,
+  "mean_insertion_auc": 0.3817682222307414,
+  "mean_deletion_auc": 0.2868474560511025,
+  "mean_faithfulness": 0.0949207661796389
+}

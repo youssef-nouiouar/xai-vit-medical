@@ -1,0 +1,9 @@
+{
+  "model": "swin_base",
+  "method": "lrp",
+  "n_images": 450,
+  "accuracy": 0.9577777777777777,
+  "mean_insertion_auc": 0.5906537250354633,
+  "mean_deletion_auc": 0.63780944300369,
+  "mean_faithfulness": -0.04715571796822671
+}

@@ -1,0 +1,9 @@
+{
+  "model": "deit_base",
+  "method": "gradcam",
+  "n_images": 450,
+  "accuracy": 0.9444444444444444,
+  "mean_insertion_auc": 0.8928064086763584,
+  "mean_deletion_auc": 0.6988968332975475,
+  "mean_faithfulness": 0.19390957537881093
+}

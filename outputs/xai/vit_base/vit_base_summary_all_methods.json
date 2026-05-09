@@ -1,0 +1,47 @@
+[
+  {
+    "model": "vit_base",
+    "method": "gradcam",
+    "n_images": 450,
+    "accuracy": 0.9266666666666666,
+    "mean_insertion_auc": 0.6121621138001365,
+    "mean_deletion_auc": 0.3742912999312322,
+    "mean_faithfulness": 0.2378708138689043
+  },
+  {
+    "model": "vit_base",
+    "method": "integrated_gradients",
+    "n_images": 450,
+    "accuracy": 0.9266666666666666,
+    "mean_insertion_auc": 0.5078021243716947,
+    "mean_deletion_auc": 0.3327498885091032,
+    "mean_faithfulness": 0.1750522358625915
+  },
+  {
+    "model": "vit_base",
+    "method": "attention_rollout",
+    "n_images": 450,
+    "accuracy": 0.9266666666666666,
+    "mean_insertion_auc": 0.565425540038913,
+    "mean_deletion_auc": 0.515273698744847,
+    "mean_faithfulness": 0.050151841294066024
+  },
+  {
+    "model": "vit_base",
+    "method": "generic_attention",
+    "n_images": 450,
+    "accuracy": 0.9266666666666666,
+    "mean_insertion_auc": 0.6619747732673429,
+    "mean_deletion_auc": 0.38597808345621193,
+    "mean_faithfulness": 0.27599668981113096
+  },
+  {
+    "model": "vit_base",
+    "method": "lrp",
+    "n_images": 450,
+    "accuracy": 0.9266666666666666,
+    "mean_insertion_auc": 0.471795112478863,
+    "mean_deletion_auc": 0.37776080437919785,
+    "mean_faithfulness": 0.09403430809966518
+  }
+]
