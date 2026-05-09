@@ -1,0 +1,9 @@
+{
+  "model": "dinov2",
+  "method": "lrp",
+  "n_images": 450,
+  "accuracy": 0.9466666666666667,
+  "mean_insertion_auc": 0.4522517209673596,
+  "mean_deletion_auc": 0.3956014652722471,
+  "mean_faithfulness": 0.056650255695112506
+}

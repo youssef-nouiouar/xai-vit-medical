@@ -1,0 +1,9 @@
+{
+  "model": "dinov2",
+  "method": "integrated_gradients",
+  "n_images": 450,
+  "accuracy": 0.9466666666666667,
+  "mean_insertion_auc": 0.4708613480143365,
+  "mean_deletion_auc": 0.3680834202450626,
+  "mean_faithfulness": 0.10277792776927391
+}
