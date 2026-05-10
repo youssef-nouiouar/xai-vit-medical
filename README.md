@@ -195,122 +195,41 @@
 ---
 
 ### 5.2 ViT-Base/16
-
-<div style="display: flex; gap: 5px; flex-wrap: wrap;">
-
-  <div style="flex: 1; text-align: center;">
-    <img src="outputs/xai/vit_base/gradcam/vit_base_class_montage.png" alt="Montage ViT-Base — GradCAM" />
-    <p><strong>GradCAM </strong> </p>
-  </div>
-
-  <div style="flex: 1; text-align: center;">
-    <img src="outputs/xai/vit_base/integrated_gradients/vit_base_class_montage.png" alt="Montage ViT-Base — Integrated Gradients" />
-    <p><strong> IG </strong></p>
-  </div>
-
-  <div style="flex: 1; text-align: center;">
-    <img src="outputs/xai/vit_base/attention_rollout/vit_base_class_montage.png" alt="Montage ViT-Base — Attention Rollout" />
-    <p><strong>Rollout </strong> </p>
-  </div>
-
-  <div style="flex: 1; text-align: center;">
-    <img src="outputs/xai/vit_base/generic_attention/vit_base_class_montage.png" alt="Montage ViT-Base — Generic Attention" />
-    <p><strong>Generic Attention </strong></p>
-  </div>
-
-  <div style="flex: 1; text-align: center;">
-    <img src="outputs/xai/vit_base/lrp/vit_base_class_montage.png" alt="Montage ViT-Base — LRP"/>
-    <p><strong> LRP </strong></p>
-  </div>
-
-</div>
-
+| GradCAM | IG | Rollout | Generic Attention | LRP |
+|--------|----|----------|-------------------|-----|
+| <img src="outputs/xai/vit_base/gradcam/vit_base_class_montage.png" width="160"/> | 
+  <img src="outputs/xai/vit_base/integrated_gradients/vit_base_class_montage.png" width="160"/> |
+  <img src="outputs/xai/vit_base/attention_rollout/vit_base_class_montage.png" width="160"/> |
+  <img src="outputs/xai/vit_base/generic_attention/vit_base_class_montage.png" width="160"/> |
+  <img src="outputs/xai/vit_base/lrp/vit_base_class_montage.png" width="160"/> |
 ---
 
 ### 5.3 DeiT-Base
-
-<div style="display: flex; gap: 5px; flex-wrap: wrap;">
-
-  <div style="flex: 1; text-align: center;">
-    <img src="outputs/xai/deit_base/gradcam/deit_base_class_montage.png" alt="Montage DEIT-Base — GradCAM" />
-    <p><strong>GradCAM </strong> </p>
-  </div>
-
-  <div style="flex: 1; text-align: center;">
-    <img src="outputs/xai/deit_base/integrated_gradients/deit_base_class_montage.png" alt="Montage DEIT-Base — Integrated Gradients" />
-    <p><strong> IG </strong></p>
-  </div>
-
-  <div style="flex: 1; text-align: center;">
-    <img src="outputs/xai/deit_base/attention_rollout/deit_base_class_montage.png" alt="Montage DEIT-Base — Attention Rollout" />
-    <p><strong>Rollout </strong> </p>
-  </div>
-
-  <div style="flex: 1; text-align: center;">
-    <img src="outputs/xai/deit_base/generic_attention/deit_base_class_montage.png" alt="Montage DEIT-Base — Generic Attention" />
-    <p><strong>Generic Attention </strong></p>
-  </div>
-
-  <div style="flex: 1; text-align: center;">
-    <img src="outputs/xai/deit_base/lrp/deit_base_class_montage.png" alt="Montage DEIT-Base — LRP"/>
-    <p><strong> LRP </strong></p>
-  </div>
-
-</div>
+| GradCAM | IG | Rollout | Generic Attention | LRP |
+|--------|----|----------|-------------------|-----|
+| <img src="outputs/xai/deit_base/gradcam/deit_base_class_montage.png" width="160"/> | 
+  <img src="outputs/xai/deit_base/integrated_gradients/deit_base_class_montage.png" width="160"/> |
+  <img src="outputs/xai/deit_base/attention_rollout/deit_base_class_montage.png" width="160"/> |
+  <img src="outputs/xai/deit_base/generic_attention/deit_base_class_montage.png" width="160"/> |
+  <img src="outputs/xai/deit_base/lrp/deit_base_class_montage.png" width="160"/> |
 ---
 
 ### 5.4 DINOv2-ViT-B/14
-<div style="display: flex; gap: 5px; flex-wrap: wrap;">
-
-  <div style="flex: 1; text-align: center;">
-    <img src="outputs/xai/dinov2/gradcam/dinov2_class_montage.png" alt="Montage DINOv2 — GradCAM" height=""/>
-    <p><strong> GradCAM</strong> </p>
-  </div>
-
-  <div style="flex: 1; text-align: center;">
-    <img src="outputs/xai/dinov2/integrated_gradients/dinov2_class_montage.png" alt="Montage DINOv2 — Integrated Gradients" height=""/>
-    <p><strong>IG</strong></p>
-  </div>
-
-  <div style="flex: 1; text-align: center;">
-    <img src="outputs/xai/dinov2/attention_rollout/dinov2_class_montage.png" alt="Montage DINOv2 — Attention Rollout" height=""/>
-    <p><strong>Rollout </strong> </p>
-  </div>
-
-  <div style="flex: 1; text-align: center;">
-    <img src="outputs/xai/dinov2/generic_attention/dinov2_class_montage.png" alt="Montage DINOv2 — Generic Attention" height=""/>
-    <p><strong>Generic Attention</strong> </p>
-  </div>
-
-  <div style="flex: 1; text-align: center;">
-    <img src="outputs/xai/dinov2/lrp/dinov2_class_montage.png" alt="Montage DINOv2 — LRP" height=""/>
-    <p><strong>LRP</strong></p>
-  </div>
-
-</div>
-
+| GradCAM | IG | Rollout | Generic Attention | LRP |
+|--------|----|----------|-------------------|-----|
+| <img src="outputs/xai/dinov2/gradcam/dinov2_class_montage.png" width="160"/> | 
+  <img src="outputs/xai/dinov2/integrated_gradients/dinov2_class_montage.png" width="160"/> |
+  <img src="outputs/xai/dinov2/attention_rollout/dinov2_class_montage.png" width="160"/> |
+  <img src="outputs/xai/dinov2/generic_attention/dinov2_class_montage.png" width="160"/> |
+  <img src="outputs/xai/dinov2/lrp/dinov2_class_montage.png" width="160"/> |
 ---
 
 ### 5.5 Swin-Base
-
-<div style="display: flex; gap: 10px; flex-wrap: wrap;">
-
-  <div style="flex: 1; text-align: center;">
-    <img src="outputs/xai/swin_base/gradcam/swin_base_class_montage.png" alt="Montage Swin-Base — GradCAM" height=""/>
-    <p><strong>GradCAM </strong> </p>
-  </div>
-
-  <div style="flex: 1; text-align: center;">
-    <img src="outputs/xai/swin_base/integrated_gradients/swin_base_class_montage.png" alt="Montage Swin-Base — Integrated Gradients" height=""/>
-    <p><strong>IG </strong> </p>
-  </div>
-
-  <div style="flex: 1; text-align: center;">
-    <img src="outputs/xai/swin_base/lrp/swin_base_class_montage.png" alt="Montage Swin-Base — LRP" height=""/>
-    <p><strong>LRP </strong> </p>
-  </div>
-
-</div>
+| GradCAM | IG | LRP |
+|--------|----|-----|
+| <img src="outputs/xai/swin_base/gradcam/swin_base_class_montage.png" width="260"/> | 
+  <img src="outputs/xai/swin_base/integrated_gradients/swin_base_class_montage.png" width="260"/> |
+  <img src="outputs/xai/swin_base/lrp/swin_base_class_montage.png" width="260"/> |
 
 ---
 
