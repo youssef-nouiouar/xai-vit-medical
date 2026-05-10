@@ -13,11 +13,6 @@ import torch.nn as nn
 from loguru import logger
 
 
-# Set to True after the first Captum LRP failure so subsequent batches skip
-# the doomed attempt and its warning silently.
-_captum_lrp_unsupported: bool = False
-
-
 def _apply_lrp_rules(model: nn.Module, cfg: Any) -> None:
     """Attach Captum LRP rules directly to model modules (in-place).
 
@@ -97,30 +92,27 @@ def run_lrp(
                 return out[0]
             return out
 
-    global _captum_lrp_unsupported
     targets_t = torch.tensor(targets, device=images.device)
 
     # ---- Attempt 1: proper Captum LRP ----
     lrp_err: Exception | None = None
     rel = None
-    if not _captum_lrp_unsupported:
-        try:
-            # Fresh wrapper each time — a failed LRP attempt must not leave
-            # stale hooks/state that would poison the fallback path.
-            wrapped_lrp = _LogitsWrapper(model)
-            _apply_lrp_rules(wrapped_lrp, cfg)
-            lrp = LRP(wrapped_lrp)
-            rel = lrp.attribute(images, target=targets_t)  # (B, C, H, W)
-        except Exception as e:  # noqa: BLE001
-            lrp_err = e
-            _captum_lrp_unsupported = True  # skip on all subsequent batches
-            logger.warning(
-                f"Captum LRP failed ({type(e).__name__}). "
-                "This is expected for ResNet (residual skip connections are not "
-                "nn.Module ops — Captum cannot trace through them). "
-                "Falling back to Gradient × Input for all remaining batches "
-                "(valid LRP approximation under the z^+ rule, Kindermans 2016)."
-            )
+    try:
+        # Use a fresh wrapper each time so a failed LRP attempt cannot
+        # leave stale hooks/state that would poison the fallback path.
+        wrapped_lrp = _LogitsWrapper(model)
+        _apply_lrp_rules(wrapped_lrp, cfg)
+        lrp = LRP(wrapped_lrp)
+        rel = lrp.attribute(images, target=targets_t)  # (B, C, H, W)
+    except Exception as e:  # noqa: BLE001
+        lrp_err = e
+        logger.warning(
+            f"Captum LRP failed ({type(e).__name__}). "
+            "This is expected for ResNet (residual skip connections are not "
+            "nn.Module ops — Captum cannot trace through them). "
+            "Falling back to Gradient × Input, a valid LRP approximation "
+            "under the z^+ rule (Kindermans et al., 2016)."
+        )
 
     # ---- Attempt 2: Gradient × Input fallback ----
     if rel is None:
