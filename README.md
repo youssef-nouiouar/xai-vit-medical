@@ -204,31 +204,21 @@
 ### 5.3 DeiT-Base
 | GradCAM | IG | Rollout | Generic Attention | LRP |
 |--------|----|----------|-------------------|-----|
-| <img src="outputs/xai/deit_base/gradcam/deit_base_class_montage.png" width="160"/> | 
-  <img src="outputs/xai/deit_base/integrated_gradients/deit_base_class_montage.png" width="160"/> |
-  <img src="outputs/xai/deit_base/attention_rollout/deit_base_class_montage.png" width="160"/> |
-  <img src="outputs/xai/deit_base/generic_attention/deit_base_class_montage.png" width="160"/> |
-  <img src="outputs/xai/deit_base/lrp/deit_base_class_montage.png" width="160"/> |
+| <img src="outputs/xai/deit_base/gradcam/deit_base_class_montage.png" width="160"/> | <img src="outputs/xai/deit_base/integrated_gradients/deit_base_class_montage.png" width="160"/> | <img src="outputs/xai/deit_base/attention_rollout/deit_base_class_montage.png" width="160"/> | <img src="outputs/xai/deit_base/generic_attention/deit_base_class_montage.png" width="160"/> | <img src="outputs/xai/deit_base/lrp/deit_base_class_montage.png" width="160"/> |
   
 ---
 
 ### 5.4 DINOv2-ViT-B/14
 | GradCAM | IG | Rollout | Generic Attention | LRP |
 |--------|----|----------|-------------------|-----|
-| <img src="outputs/xai/dinov2/gradcam/dinov2_class_montage.png" width="160"/> | 
-  <img src="outputs/xai/dinov2/integrated_gradients/dinov2_class_montage.png" width="160"/> |
-  <img src="outputs/xai/dinov2/attention_rollout/dinov2_class_montage.png" width="160"/> |
-  <img src="outputs/xai/dinov2/generic_attention/dinov2_class_montage.png" width="160"/> |
-  <img src="outputs/xai/dinov2/lrp/dinov2_class_montage.png" width="160"/> |
+| <img src="outputs/xai/dinov2/gradcam/dinov2_class_montage.png" width="160"/> | <img src="outputs/xai/dinov2/integrated_gradients/dinov2_class_montage.png" width="160"/> | <img src="outputs/xai/dinov2/attention_rollout/dinov2_class_montage.png" width="160"/> | <img src="outputs/xai/dinov2/generic_attention/dinov2_class_montage.png" width="160"/> | <img src="outputs/xai/dinov2/lrp/dinov2_class_montage.png" width="160"/> |
   
 ---
 
 ### 5.5 Swin-Base
 | GradCAM | IG | LRP |
 |--------|----|-----|
-| <img src="outputs/xai/swin_base/gradcam/swin_base_class_montage.png" width="260"/> | 
-  <img src="outputs/xai/swin_base/integrated_gradients/swin_base_class_montage.png" width="260"/> |
-  <img src="outputs/xai/swin_base/lrp/swin_base_class_montage.png" width="260"/> |
+| <img src="outputs/xai/swin_base/gradcam/swin_base_class_montage.png" width="260"/> |  <img src="outputs/xai/swin_base/integrated_gradients/swin_base_class_montage.png" width="260"/> | <img src="outputs/xai/swin_base/lrp/swin_base_class_montage.png" width="260"/> |
 
 ---
 
