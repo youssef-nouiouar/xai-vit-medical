@@ -1,7 +1,8 @@
 # Evaluation XAI — Phase 1
 ## Classification histologique CRC · ResNet-50 vs. ViT-Base / DeiT-Base / DINOv2 / Swin-Base
 
-> **Auteur :** Youssef Nouiouar  
+> **Auteur :** Youssef Nouiouar
+> ### 🧬 Dataset — Histological Colorectal Cancer (CRC) |**➡️ [Disponible :Zenodo](https://zenodo.org/records/1214456)**  
 > **Dataset test :** CRC-VAL-HE-7K — 7 180 images, 9 classes (sous-ensemble : 50 images/classe = 450 images)  
 > **Environnement :** Kaggle GPU T4 / P100  
 > **Phase :** Phase 1 uniquement — histologie 2D CRC
