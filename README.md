@@ -188,26 +188,9 @@
 > Les classes CRC sont : ADI · BACK · DEB · LYM · MUC · MUS · NORM · STR · TUM.
 
 ### 5.1 ResNet-50
-
-
-<div style="display: flex; gap: 10px;">
-
-  <div style="flex: 1; text-align: center;">
-    <img src="outputs/xai/resnet50/gradcam/class_montage.png" alt="Montage ResNet-50 — GradCAM" height="450" />
-    <p><strong>GradCAM </strong> </p>
-  </div>
-
-  <div style="flex: 1; text-align: center;">
-    <img src="outputs/xai/resnet50/integrated_gradients/class_montage.png" alt="Montage ResNet-50 — Integrated Gradients" height="450" />
-    <p><strong>IG </strong> </p>
-  </div>
-
-  <div style="flex: 1; text-align: center;">
-    <img src="outputs/xai/resnet50/lrp/class_montage.png" alt="Montage ResNet-50 — LRP" height="450" />
-    <p><strong> LRP </strong> </p>
-  </div>
-
-</div>
+| GradCAM | IG | LRP |
+|--------|----|-----|
+| <img src="outputs/xai/resnet50/gradcam/class_montage.png" width="250"/> | <img src="outputs/xai/resnet50/integrated_gradients/class_montage.png" width="250"/> | <img src="outputs/xai/resnet50/lrp/class_montage.png" width="250"/> |
 
 ---
 
