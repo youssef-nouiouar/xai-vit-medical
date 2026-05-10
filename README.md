@@ -203,7 +203,7 @@
   </div>
 
   <div style="flex: 1; text-align: center;">
-    <img src="outputs/xai/resnet50/lrp/class_montage.png" alt="Montage ResNet-50 — LRP" />
+    <img src="outputs/xai/resnet50/lrp/class_montage.png" alt="Montage ResNet-50 — LRP" height="450" />
     <p><strong> LRP </strong> </p>
   </div>
 
