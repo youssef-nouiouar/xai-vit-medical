@@ -195,8 +195,8 @@
 ---
 
 ### 5.2 ViT-Base/16
-| GradCAM | IG | Rollout | Generic Attention | LRP |
-|--------|----|----------|-------------------|-----|
+| GradCAM |      IG          | Rollout  | Generic Attention | LRP |
+|--------|-------------------|----------|-------------------|-----|
 | <img src="outputs/xai/vit_base/gradcam/vit_base_class_montage.png" width="160"/> | <img src="outputs/xai/vit_base/integrated_gradients/vit_base_class_montage.png" width="160"/> |<img src="outputs/xai/vit_base/attention_rollout/vit_base_class_montage.png" width="160"/> | <img src="outputs/xai/vit_base/generic_attention/vit_base_class_montage.png" width="160"/> | <img src="outputs/xai/vit_base/lrp/vit_base_class_montage.png" width="160"/> |
   
 ---
