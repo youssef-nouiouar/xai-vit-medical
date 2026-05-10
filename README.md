@@ -202,6 +202,7 @@
   <img src="outputs/xai/vit_base/attention_rollout/vit_base_class_montage.png" width="160"/> |
   <img src="outputs/xai/vit_base/generic_attention/vit_base_class_montage.png" width="160"/> |
   <img src="outputs/xai/vit_base/lrp/vit_base_class_montage.png" width="160"/> |
+  
 ---
 
 ### 5.3 DeiT-Base
@@ -212,6 +213,7 @@
   <img src="outputs/xai/deit_base/attention_rollout/deit_base_class_montage.png" width="160"/> |
   <img src="outputs/xai/deit_base/generic_attention/deit_base_class_montage.png" width="160"/> |
   <img src="outputs/xai/deit_base/lrp/deit_base_class_montage.png" width="160"/> |
+  
 ---
 
 ### 5.4 DINOv2-ViT-B/14
@@ -222,6 +224,7 @@
   <img src="outputs/xai/dinov2/attention_rollout/dinov2_class_montage.png" width="160"/> |
   <img src="outputs/xai/dinov2/generic_attention/dinov2_class_montage.png" width="160"/> |
   <img src="outputs/xai/dinov2/lrp/dinov2_class_montage.png" width="160"/> |
+  
 ---
 
 ### 5.5 Swin-Base
