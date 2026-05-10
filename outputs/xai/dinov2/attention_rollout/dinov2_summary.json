@@ -1,0 +1,9 @@
+{
+  "model": "dinov2",
+  "method": "attention_rollout",
+  "n_images": 450,
+  "accuracy": 0.9466666666666667,
+  "mean_insertion_auc": 0.8036736888316176,
+  "mean_deletion_auc": 0.7521193517612064,
+  "mean_faithfulness": 0.05155433707041124
+}
