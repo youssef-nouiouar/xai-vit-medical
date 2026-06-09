@@ -274,14 +274,14 @@
 
 > - Sanity checks (model randomization + label randomization) — obligatoires avant publication
 > - SAE sur DeiT-Base et DINOv2 — **réalisé, voir [Section 7](#7-méthodes-mécanistes--sae-sparse-autoencoders)** ; résultats à améliorer (faible fréquence d'activation)
-> - Activation Patching pour la détection de raccourcis (Contribution C2) — à réaliser
+> - Activation Patching 
 > - Analyse approfondie des classes difficiles : MUC, DEB
 
 ---
 
 ## 7. Méthodes mécanistes — SAE (Sparse Autoencoders)
 
-> **Objectif :** Décomposer les représentations internes des ViTs en features monosémantiques interprétables, puis localiser spatialement leur activation sur les tissus histologiques CRC. Cette section constitue la Contribution C1 de la thèse.
+> **Objectif :** Décomposer les représentations internes des ViTs en features monosémantiques interprétables, puis localiser spatialement leur activation sur les tissus histologiques CRC.
 
 ---
 
