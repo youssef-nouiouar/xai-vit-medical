@@ -23,6 +23,15 @@
 4. [Apport de Generic Attention sur les ViTs](#4-apport-de-generic-attention-sur-les-vits)
 5. [Inspection visuelle — montages par classe](#5-inspection-visuelle--montages-par-classe)
 6. [Remarques et conclusions générales](#6-remarques-et-conclusions-générales)
+7. [Méthodes mécanistes — SAE (Sparse Autoencoders)](#7-méthodes-mécanistes--sae-sparse-autoencoders)
+   - 7.1 [Pipeline et notebooks](#71-pipeline-et-notebooks)
+   - 7.2 [Choix de configuration](#72-choix-de-configuration)
+   - 7.3 [Résultats SAE — DeiT-Base](#73-résultats-sae--deit-base)
+   - 7.4 [Résultats SAE — DINOv2-ViT-B/14](#74-résultats-sae--dinov2-vit-b14)
+   - 7.5 [Patches les plus activants par classe](#75-patches-les-plus-activants-par-classe)
+   - 7.6 [Espace des features SAE — t-SNE](#76-espace-des-features-sae--t-sne)
+   - 7.7 [Analyse d'ablation causale](#77-analyse-dablation-causale)
+   - 7.8 [Discussion et limites](#78-discussion-et-limites)
 
 ---
 
@@ -62,7 +71,7 @@
 | Attention Rollout | — | — | — |
 | Generic Attention | — | — | — |
 
-> **Résumé:** : GradCAM est la méthode la plus fidèle sur CNN. LRP et IG restent en retrait.
+> **Résumé :** GradCAM est la méthode la plus fidèle sur CNN. LRP et IG restent en retrait.
 
 
 ---
@@ -90,8 +99,7 @@
 | Generic Attention ⭐ | 0.911 | 0.660 | 0.251 |
 | LRP | 0.586 | 0.570 | 0.015 |
 
-> **Note :**  2 tokens spéciaux ([CLS] + [DIST]) pris en compte pour Rollout et Generic Attention.
-.
+> **Note :** 2 tokens spéciaux ([CLS] + [DIST]) pris en compte pour Rollout et Generic Attention.
 ---
 
 ### 2.4 DINOv2-ViT-B/14
@@ -136,7 +144,7 @@
 | Swin-Base | 0.006 | 0.034 | — | — | -0.047 |
 
 ---
-** Total :** 21 combinaisons actives sur 21 possibles.
+**Total :** 21 combinaisons actives sur 21 possibles.
 
 ## 3. Comparaison CNN vs. ViT — GradCAM
 
@@ -175,7 +183,7 @@
 | DINOv2-ViT-B/14 | 0.204          | 0.261         | **Generic Attention** |
 
 
-> **Résumé :**Generic Attention exploite la structure interne d'attention du Transformer ; GradCAM reste un proxy externe via les gradients de feature maps. L'écart se confirme numériquement sur les 3 modèles.
+> **Résumé :** Generic Attention exploite la structure interne d'attention du Transformer ; GradCAM reste un proxy externe via les gradients de feature maps. L'écart se confirme numériquement sur les 3 modèles.
 
 ### 4.3 Observations qualitatives — Generic Attention
 
@@ -240,7 +248,7 @@
 | DINOv2-ViT-B/14 | **Generic Attention** | 0.261        |
 | Swin-Base       | Integrated Gradients  | 0.034        |
 
->**Tendanc :** Pas de méthode universelle. Generic Attention domine sur tous les ViTs à attention globale. GradCAM reste le choix par défaut sur CNN. Swin-Base reste problématique pour l'interprétabilité.
+> **Tendance :** Pas de méthode universelle. Generic Attention domine sur tous les ViTs à attention globale. GradCAM reste le choix par défaut sur CNN. Swin-Base reste problématique pour l'interprétabilité.
 
 ### 6.3 CNN vs. ViT — interprétabilité
 
@@ -262,13 +270,212 @@
 | GradCAM sur Swin (7×7)            | Résolution trop faible pour l'histologie          |
 
 
-### 6.6 Perspectives — étapes suivantes (Phase 2)
+### 6.6 Perspectives — étapes suivantes
 
-> [à compléter —  :
 > - Sanity checks (model randomization + label randomization) — obligatoires avant publication
-> - SAE sur DeiT-Base et DINOv2 
-> - Activation Patching pour la détection de raccourcis 
-> - Analyse par classe difficiles : MUC, DEB
+> - SAE sur DeiT-Base et DINOv2 — **réalisé, voir [Section 7](#7-méthodes-mécanistes--sae-sparse-autoencoders)** ; résultats à améliorer (faible fréquence d'activation)
+> - Activation Patching pour la détection de raccourcis (Contribution C2) — à réaliser
+> - Analyse approfondie des classes difficiles : MUC, DEB
+
+---
+
+## 7. Méthodes mécanistes — SAE (Sparse Autoencoders)
+
+> **Objectif :** Décomposer les représentations internes des ViTs en features monosémantiques interprétables, puis localiser spatialement leur activation sur les tissus histologiques CRC. Cette section constitue la Contribution C1 de la thèse.
+
+---
+
+### 7.1 Pipeline et notebooks
+
+| Étape | Notebook | Description |
+|-------|----------|-------------|
+| 1 — Extraction | `06_collect_activations.ipynb` | Extraction des activations patch à la couche cible ; sauvegarde au format HDF5 (`*_layer9_acts.h5`) |
+| 2 — Entraînement | `06_training_sae.ipynb` | Entraînement du SAE TopK sur les activations collectées |
+| 3 — Interprétation | `06_interpretat_featers.ipynb` | Statistiques d'activation, fréquence par classe, cartes spatiales, ablation causale, t-SNE |
+
+**Résultats stockés dans :** `outputs/sae/`
+
+---
+
+### 7.2 Choix de configuration
+
+#### Couche primaire : Layer 9
+
+La couche 9 a été retenue pour deux raisons complémentaires :
+
+- Dans un modèle finement ajusté sur une tâche de classification histologique, les couches 9 et 10 encodent les distinctions propres au tissu colorectal (tumeur vs. tissu normal vs. tissu sain, etc.). Ce sont les couches « conceptuelles » du réseau.
+- La couche 11 est trop proche de la tête de classification : les features y deviennent des proxies de logits de classe plutôt que des représentations sémantiques indépendantes. Un SAE entraîné sur cette couche apprendrait des directions liées à la prédiction finale, pas à des concepts tissulaires.
+
+#### `token_type = patch` (et non CLS)
+
+| | CLS token | Patch tokens |
+|---|---|---|
+| Dimensionnalité | 1 vecteur × 768 dims | 196 vecteurs (DeiT, patch 16×16) / 256 vecteurs (DINOv2, patch 14×14) |
+| Information spatiale | Aucune — résumé global de l'image | Oui — chaque vecteur correspond à une région de 16×16 px ou 14×14 px |
+| Visualisation SAE | Non localisable | Carte 2D de l'activation de chaque feature sur le tissu |
+| Précédent | SAE-Rad (Li et al.) | Approche adoptée ici |
+
+Le choix des patch tokens est central pour l'histologie : l'objectif est de montrer « cette feature SAE s'active sur les lumières glandulaires » (ADI) ou « sur les noyaux tumoraux » (TUM), pas seulement « sur les images cancéreuses ». La localisation spatiale est indispensable pour que les features soient cliniquement interprétables. Le CLS token pourra faire l'objet d'une expérience complémentaire ultérieure.
+
+#### Hyperparamètres SAE (identiques pour DeiT et DINOv2)
+
+| Paramètre | Valeur | Description |
+|-----------|--------|-------------|
+| Architecture | TopK SAE | Sparsité exacte : seules les k activations les plus élevées sont conservées, les autres mises à zéro |
+| Dimension d'entrée (`d_input`) | 768 | Dimension cachée ViT-B |
+| Expansion | 16× | Ratio de sur-complétion du dictionnaire |
+| Nombre de features (`d_sae`) | 12 288 | 768 × 16 |
+| `k` (TopK) | 32 | Features actives par token (sparsité stricte) |
+| Perte | MSE + perte auxiliaire | Reconstruction pure + pénalité de réactivation des features mortes |
+| `aux_k` | 64 | Features mortes réactivées par batch (≈ 2×k) |
+| `aux_coef` | 0.25 | Poids de la perte auxiliaire relative à la MSE |
+| `dead_window` | 200 pas | Seuil de détection d'une feature morte |
+| Taux d'apprentissage | 3×10⁻⁴ | Adam (β₁=0.9, β₂=0.999) |
+| Batch size | 4 096 tokens | Tokens par batch (pas images) |
+| Époques | 5 | Avec warmup linéaire (1 000 pas) puis cosine decay |
+
+---
+
+### 7.3 Résultats SAE — DeiT-Base
+
+> **Fichiers :** `outputs/sae/deit_base/`
+
+#### Qualité de reconstruction
+
+| Métrique | Valeur | Cible |
+|----------|--------|-------|
+| R² (variance expliquée) | **0.921** | > 0.85 |
+| Similarité cosinus | **0.952** | > 0.90 |
+| Features mortes | **28.3 %** | 10–30 % |
+| Tokens traités | 4 866 484 | |
+
+> Le SAE reconstruit fidèlement les activations (R² = 0.921). Le taux de features mortes (28.3 %) est dans la plage saine, indiquant que la perte auxiliaire a bien rempli son rôle.
+
+![Courbes d'entraînement DeiT-Base](outputs/sae/deit_base/sae_deit_base_patch16_training.png)
+
+#### Top feature par classe — fréquence et sélectivité
+
+| Classe | Feature | Sélectivité | Fréquence d'activation |
+|--------|---------|:-----------:|:----------------------:|
+| ADI  | #1198  | 1.000 | 0.01 % |
+| BACK | #4498  | 1.000 | 0.02 % |
+| DEB  | #566   | 0.999 | < 0.01 % |
+| LYM  | #10866 | 1.000 | 0.31 % |
+| MUC  | #2835  | 1.000 | < 0.01 % |
+| MUS  | #5147  | 1.000 | 0.01 % |
+| NORM | #1031  | 1.000 | 0.69 % |
+| STR  | #9967  | 1.000 | 0.06 % |
+| TUM  | #11685 | 1.000 | 0.03 % |
+
+> **Observation clé :** Malgré une sélectivité parfaite (≈ 1.000 pour toutes les classes), les fréquences d'activation sont extrêmement faibles — entre < 0.01 % et 0.69 %. Les features SAE ne s'activent pas de façon consistante sur l'ensemble des images d'une même classe, ce qui empêche de les associer à un concept tissulaire de façon robuste.
+
+---
+
+### 7.4 Résultats SAE — DINOv2-ViT-B/14
+
+> **Fichiers :** `outputs/sae/dinov2/`
+
+#### Qualité de reconstruction
+
+| Métrique | Valeur | Cible |
+|----------|--------|-------|
+| R² (variance expliquée) | 0.9395    | > 0.85 |
+| Similarité cosinus | 0.9565   | > 0.90 |
+| Features mortes | 30.3 | 10–30 % |
+| Tokens traités | 10,199,296 |  |
+
+![Courbes d'entraînement DINOv2](outputs/sae/dinov2/sae_dinov2_base_patch16_training.png)
+
+#### Top feature par classe — fréquence et sélectivité
+
+| Classe | Feature  | Sélectivité | Fréquence d'activation |
+|--------|----------|:-----------:|:----------------------:|
+| ADI  | #247   | 1.00 | 0.004 % |
+| BACK | #8651  | 1.00 | 0.004 % |
+| DEB  | #10972 | 0.999 | < 0.001 % |
+| LYM  | #4505  | 0.999 | 13.69 % |
+| MUC  | #2650  | 0.999 | 0.001 % |
+| MUS  | #11772 | 0.999 | 0.001 % |
+| NORM | #7452  | 0.999 | < 0.001 % |
+| STR  | #4716  | 1.00 | 0.003 % |
+| TUM  | #9350  |  | < 0.001 % |
+
+> **Observation :** Le même phénomène de faible fréquence est observé sur DINOv2, malgré la qualité supérieure des représentations (pré-entraînement auto-supervisé à grande échelle). Exception notable : la feature LYM #4505 atteint une fréquence de 13.69 %, comparable au NORM de DeiT-Base, suggérant une représentation des lymphocytes plus condensée dans DINOv2.
+
+---
+
+### 7.5 Patches les plus activants par classe
+
+> Pour chaque feature de tête par classe, les 9 patches qui l'activent le plus fortement sont affichés (100 images par classe). Si les patches d'une feature sont visuellement cohérents (ex. : toutes des lumières glandulaires, tous des lymphocytes…), la feature est monosémantique.
+
+| Classe | DeiT-Base | DINOv2-ViT-B/14 |
+|--------|-----------|-----------------|
+| ADI  | <img src="outputs/sae/deit_base/interpretations/topk_feat1198.png" width="220"/> | <img src="outputs/sae/dinov2/interpretations/topk_feat247.png" width="220"/> |
+| BACK | <img src="outputs/sae/deit_base/interpretations/topk_feat4498.png" width="220"/> | <img src="outputs/sae/dinov2/interpretations/topk_feat8651.png" width="220"/> |
+| DEB  | <img src="outputs/sae/deit_base/interpretations/topk_feat566.png" width="220"/> | <img src="outputs/sae/dinov2/interpretations/topk_feat10972.png" width="220"/> |
+| LYM  | <img src="outputs/sae/deit_base/interpretations/topk_feat10866.png" width="220"/> | <img src="outputs/sae/dinov2/interpretations/topk_feat4505.png" width="220"/> |
+| MUC  | <img src="outputs/sae/deit_base/interpretations/topk_feat2835.png" width="220"/> | <img src="outputs/sae/dinov2/interpretations/topk_feat2650.png" width="220"/> |
+| MUS  | <img src="outputs/sae/deit_base/interpretations/topk_feat5147.png" width="220"/> | <img src="outputs/sae/dinov2/interpretations/topk_feat11772.png" width="220"/> |
+| NORM | <img src="outputs/sae/deit_base/interpretations/topk_feat1031.png" width="220"/> | <img src="outputs/sae/dinov2/interpretations/topk_feat7452.png" width="220"/> |
+| STR  | <img src="outputs/sae/deit_base/interpretations/topk_feat9967.png" width="220"/> | <img src="outputs/sae/dinov2/interpretations/topk_feat4716.png" width="220"/> |
+| TUM  | <img src="outputs/sae/deit_base/interpretations/topk_feat11685.png" width="220"/> | <img src="outputs/sae/dinov2/interpretations/topk_feat9350.png" width="220"/> |
+
+> **Résumé :** LYM et NORM (DeiT uniquement) présentent des features genuinement monosémantiques — le SAE a appris des features dédiées avec une activation forte et cohérente. Pour les autres classes (ADI, DEB, MUC…), les patches sont moins cohérents, confirmant la faible fréquence d'activation.
+
+---
+
+### 7.6 Espace des features SAE — t-SNE
+
+> Projection t-SNE des activations SAE moyennées par image, colorées par classe. Des clusters séparés indiquent que le SAE encode une structure discriminante entre classes.
+
+| DeiT-Base | DINOv2-ViT-B/14 |
+|-----------|-----------------|
+| <img src="outputs/sae/deit_base/interpretations/tsne_sae_features.png" width="350"/> | <img src="outputs/sae/dinov2/interpretations/tsne_sae_features.png" width="350"/> |
+
+> **Observation :** Pour les deux modèles, des clusters séparés par classe sont visibles dans l'espace SAE, ce qui confirme que le SAE capture une structure discriminante malgré les faibles fréquences d'activation par token individuel.
+
+---
+
+### 7.7 Analyse d'ablation causale
+
+> **Principe :** Pour valider qu'une feature SAE est causalement impliquée dans une prédiction, on met à zéro son activation dans le code SAE, on décode le résidu modifié, puis on observe si la prédiction d'une sonde linéaire change. Une sonde linéaire entraînée sur les activations reconstruites sert de classificateur de référence (accuracy = 100 %).
+
+| Modèle | Feature ablée | Classe cible | Images analysées | Prédictions avant | Prédictions après | Flipped |
+|--------|---------------|:------------:|:----------------:|:-----------------:|:-----------------:|:-------:|
+| DeiT-Base | Top feature par classe | class_i | 100 | 100 % class_i | 100 % class_i | **0 %** |
+| DINOv2 | Top feature par classe | class_i | 100 | 100 % class_i | 100 % class_i | **0 %** |
+
+> **Résultat :** L'ablation des features SAE ne modifie pas la prédiction pour aucun des deux modèles. Ce résultat est directement cohérent avec les fréquences d'activation quasi nulles : une feature qui s'active sur < 0.01 % à 0.69 % des tokens (DeiT) ou < 0.001 % à 13.69 % (DINOv2) n'est pas causalement responsable de la décision finale.
+
+---
+
+### 7.8 Discussion et limites
+
+#### Diagnostic : pourquoi les features sont-elles peu fréquentes ?
+
+| Cause probable | Explication |
+|----------------|-------------|
+| Sparsité trop élevée (k=32) | Avec 12 288 features et seulement 32 actives par token, chaque feature a statistiquement peu d'opportunités de s'activer ; les concepts sont dispersés sur de nombreuses features rares |
+| Dictionnaire sur-dimensionné (16×) | L'expansion 16× peut dépasser la diversité sémantique réelle de la couche 9 ; une expansion 4× ou 8× forcerait une meilleure utilisation |
+| Superposition de features | Une même région tissulaire active des features différentes selon les images, signe d'une décomposition instable |
+| Couche 9 encore polysémantique | Malgré le fine-tuning, la couche 9 encode encore des features de bas niveau partagées entre classes |
+| Corpus d'entraînement SAE | DeiT : 24 829 images × 196 patches ≈ 4,9 M tokens ; DINOv2 : [à compléter] |
+
+#### Conséquences pour l'interprétabilité
+
+- Il n'est **pas possible** d'associer une feature SAE à un concept histologique de façon robuste avec la configuration actuelle.
+- L'ablation causale est **non informative** : aucun changement de prédiction ne peut être attribué à une feature individuelle.
+- Les cartes spatiales d'activation sont visuellement localisées (cohérentes pour LYM et NORM) mais ne sont **pas statistiquement représentatives** d'une classe pour la majorité des tissus.
+
+#### Pistes d'amélioration
+
+| Piste | Description |
+|-------|-------------|
+| Augmenter k | k=64 ou k=128 pour obtenir des features plus fréquentes sans sacrifier la sparsité |
+| Réduire le dictionnaire | Expansion 4× (3 072 features) ou 8× (6 144 features) plutôt que 16× |
+| Entraîner sur la couche 10 | Tester si la couche 10 produit des features plus stables et fréquentes |
+| Augmenter le corpus | Utiliser l'intégralité de NCT-CRC-HE-100K (100 000 images) pour l'extraction |
+| SAE sur CLS (expérience complémentaire) | Vérifier si le token CLS produit des features plus fréquentes (au prix de la localisation spatiale) |
 
 ---
 
