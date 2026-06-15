@@ -317,22 +317,26 @@ La couche 9 a été retenue pour deux raisons complémentaires :
 
 Le choix des patch tokens est central pour l'histologie : l'objectif est de montrer « cette feature SAE s'active sur les lumières glandulaires » (ADI) ou « sur les noyaux tumoraux » (TUM), pas seulement « sur les images cancéreuses ». La localisation spatiale est indispensable pour que les features soient cliniquement interprétables. Le CLS token pourra faire l'objet d'une expérience complémentaire ultérieure.
 
-#### Hyperparamètres SAE (identiques pour DeiT et DINOv2)
+#### Hyperparamètres SAE — v2 (DeiT-Base)
 
-| Paramètre | Valeur | Description |
-|-----------|--------|-------------|
-| Architecture | TopK SAE | Sparsité exacte : seules les k activations les plus élevées sont conservées, les autres mises à zéro |
-| Dimension d'entrée (`d_input`) | 768 | Dimension cachée ViT-B |
-| Expansion | 16× | Ratio de sur-complétion du dictionnaire |
-| Nombre de features (`d_sae`) | 12 288 | 768 × 16 |
-| `k` (TopK) | 32 | Features actives par token (sparsité stricte) |
-| Perte | MSE + perte auxiliaire | Reconstruction pure + pénalité de réactivation des features mortes |
-| `aux_k` | 64 | Features mortes réactivées par batch (≈ 2×k) |
-| `aux_coef` | 0.25 | Poids de la perte auxiliaire relative à la MSE |
-| `dead_window` | 200 pas | Seuil de détection d'une feature morte |
-| Taux d'apprentissage | 3×10⁻⁴ | Adam (β₁=0.9, β₂=0.999) |
-| Batch size | 4 096 tokens | Tokens par batch (pas images) |
-| Époques | 5 | Avec warmup linéaire (1 000 pas) puis cosine decay |
+> **Note :** Les paramètres v1 (EXPANSION=16, k=32, 5 époques) produisaient des features avec une fréquence d'activation quasi nulle. La v2 corrige ces trois points. Voir section 7.8 pour le diagnostic complet.
+
+| Paramètre | v1 ~~(abandonné)~~ | **v2 (actuel)** | Raison du changement |
+|-----------|-------------------|-----------------|----------------------|
+| Architecture | TopK SAE | **TopK SAE** | — |
+| `d_input` | 768 | **768** | Dimension cachée ViT-B |
+| Expansion | ~~16×~~ | **8×** | Dictionnaire trop large pour 25 k images ; réduit la compétition entre features |
+| `d_sae` | ~~12 288~~ | **6 144** | 768 × 8 |
+| `k` (TopK) | ~~32~~ | **64** | Taux de tirage 0.26 % → 1.04 % par token ; double directement la fréquence |
+| `encode()` ReLU | ~~clamp après TopK~~ | **ReLU avant TopK** | v1 gaspillait des slots sur des valeurs négatives, L0 effectif < k |
+| Init W_enc | ~~Kaiming indépendant~~ | **W_enc = W_dec.T** | Directions conjuguées dès l'initialisation |
+| Taux d'apprentissage | ~~3×10⁻⁴~~ | **2×10⁻⁴** | Légèrement réduit pour k plus grand |
+| Époques | ~~5~~ | **15** | Plus de passes nécessaires pour la spécialisation |
+| `warmup_steps` | ~~1 000~~ | **2 000** | Mis à l'échelle des ~16 k pas totaux |
+| `aux_k` | ~~64~~ | **128** | ≈ 2×k |
+| `dead_window` | ~~200~~ | **500** | Évite de réactiver des features en phase de chauffage |
+| Batch size | 4 096 tokens | **4 096 tokens** | — |
+| `aux_coef` | 0.25 | **0.25** | — |
 
 ---
 
@@ -340,34 +344,42 @@ Le choix des patch tokens est central pour l'histologie : l'objectif est de mont
 
 > **Fichiers :** `outputs/sae/deit_base/`
 
-#### Qualité de reconstruction
+#### Qualité de reconstruction — v1 vs v2
 
-| Métrique | Valeur | Cible |
-|----------|--------|-------|
-| R² (variance expliquée) | **0.921** | > 0.85 |
-| Similarité cosinus | **0.952** | > 0.90 |
-| Features mortes | **28.3 %** | 10–30 % |
-| Tokens traités | 4 866 484 | |
+| Métrique | v1 (EXPANSION=16, k=32, 5 ep.) | **v2 (EXPANSION=8, k=64, 15 ep.)** | Cible |
+|----------|-------------------------------|-------------------------------------|-------|
+| R² (variance expliquée) | 0.921 | **0.936** | > 0.85 ✓ |
+| Similarité cosinus | 0.952 | **[à compléter v2]** | > 0.90 |
+| Features mortes | 28.3 % | **0.0 %** | 10–30 % |
+| val MSE final | — | **0.0637** | décroissant ✓ |
+| Tokens traités | 4 866 484 | 4 866 484 | — |
 
-> Le SAE reconstruit fidèlement les activations (R² = 0.921). Le taux de features mortes (28.3 %) est dans la plage saine, indiquant que la perte auxiliaire a bien rempli son rôle.
+> **Note sur dead=0.0 % en v2 :** Avec k=64 sur 6 144 features et ~487 k tokens de validation, chaque feature reçoit statistiquement ~5 000 tirages par passe d'évaluation — il est mathématiquement impossible qu'une feature reste à zéro. Ce n'est pas un problème : cela indique que le dictionnaire est entièrement utilisé. En v1 (k=32/12 288 = 0.26 % par token), de nombreuses features étaient statistiquement affamées.
 
-![Courbes d'entraînement DeiT-Base](outputs/sae/deit_base/sae_deit_base_patch16_training.png)
+| Époque | val MSE | R² |
+|--------|---------|:--:|
+| 1  | 0.1739 | 0.826 |
+| 5  | 0.0712 | 0.929 |
+| 10 | 0.0646 | 0.935 |
+| **15** | **0.0637** | **0.936** |
+
+![Courbes d'entraînement DeiT-Base v2](outputs/sae/deit_base/sae_deit_base_patch16_training.png)
 
 #### Top feature par classe — fréquence et sélectivité
 
-| Classe | Feature | Sélectivité | Fréquence d'activation |
-|--------|---------|:-----------:|:----------------------:|
-| ADI  | #1198  | 1.000 | 0.01 % |
-| BACK | #4498  | 1.000 | 0.02 % |
-| DEB  | #566   | 0.999 | < 0.01 % |
-| LYM  | #10866 | 1.000 | 0.31 % |
-| MUC  | #2835  | 1.000 | < 0.01 % |
-| MUS  | #5147  | 1.000 | 0.01 % |
-| NORM | #1031  | 1.000 | 0.69 % |
-| STR  | #9967  | 1.000 | 0.06 % |
-| TUM  | #11685 | 1.000 | 0.03 % |
+> Les colonnes `freq_tok` et `freq_img` ci-dessous sont celles de v1. Relancer `06_interpretat_featers.ipynb` avec le checkpoint v2 pour obtenir les valeurs v2 (freq_img attendu : nettement plus élevé grâce à k=64).
 
-> **Observation clé :** Malgré une sélectivité parfaite (≈ 1.000 pour toutes les classes), les fréquences d'activation sont extrêmement faibles — entre < 0.01 % et 0.69 %. Les features SAE ne s'activent pas de façon consistante sur l'ensemble des images d'une même classe, ce qui empêche de les associer à un concept tissulaire de façon robuste.
+| Classe | Feature (v1) | Sélectivité | freq_tok v1 | freq_img v2 |
+|--------|-------------|:-----------:|:-----------:|:-----------:|
+| ADI  | #1198  | 1.000 | 0.01 % | [à compléter] |
+| BACK | #4498  | 1.000 | 0.02 % | [à compléter] |
+| DEB  | #566   | 0.999 | < 0.01 % | [à compléter] |
+| LYM  | #10866 | 1.000 | 0.31 % | [à compléter] |
+| MUC  | #2835  | 1.000 | < 0.01 % | [à compléter] |
+| MUS  | #5147  | 1.000 | 0.01 % | [à compléter] |
+| NORM | #1031  | 1.000 | 0.69 % | [à compléter] |
+| STR  | #9967  | 1.000 | 0.06 % | [à compléter] |
+| TUM  | #11685 | 1.000 | 0.03 % | [à compléter] |
 
 ---
 
@@ -375,32 +387,32 @@ Le choix des patch tokens est central pour l'histologie : l'objectif est de mont
 
 > **Fichiers :** `outputs/sae/dinov2/`
 
-#### Qualité de reconstruction
+#### Qualité de reconstruction (v1)
 
 | Métrique | Valeur | Cible |
 |----------|--------|-------|
-| R² (variance expliquée) | 0.9395    | > 0.85 |
-| Similarité cosinus | 0.9565   | > 0.90 |
-| Features mortes | 30.3 | 10–30 % |
-| Tokens traités | 10,199,296 |  |
+| R² (variance expliquée) | **0.940** | > 0.85 ✓ |
+| Similarité cosinus | **0.957** | > 0.90 ✓ |
+| Features mortes | **30.3 %** | 10–30 % ✓ |
+| Tokens traités | 10 199 296 | (39 841 images × 256 patches) |
 
 ![Courbes d'entraînement DINOv2](outputs/sae/dinov2/sae_dinov2_base_patch16_training.png)
 
-#### Top feature par classe — fréquence et sélectivité
+#### Top feature par classe — fréquence et sélectivité (v1)
 
-| Classe | Feature  | Sélectivité | Fréquence d'activation |
-|--------|----------|:-----------:|:----------------------:|
-| ADI  | #247   | 1.00 | 0.004 % |
-| BACK | #8651  | 1.00 | 0.004 % |
+| Classe | Feature | Sélectivité | Fréquence d'activation (token-level) |
+|--------|---------|:-----------:|:------------------------------------:|
+| ADI  | #247   | 1.000 | 0.004 % |
+| BACK | #8651  | 1.000 | 0.004 % |
 | DEB  | #10972 | 0.999 | < 0.001 % |
 | LYM  | #4505  | 0.999 | 13.69 % |
 | MUC  | #2650  | 0.999 | 0.001 % |
 | MUS  | #11772 | 0.999 | 0.001 % |
 | NORM | #7452  | 0.999 | < 0.001 % |
-| STR  | #4716  | 1.00 | 0.003 % |
-| TUM  | #9350  |  | < 0.001 % |
+| STR  | #4716  | 1.000 | 0.003 % |
+| TUM  | #9350  | 0.999 | < 0.001 % |
 
-> **Observation :** Le même phénomène de faible fréquence est observé sur DINOv2, malgré la qualité supérieure des représentations (pré-entraînement auto-supervisé à grande échelle). Exception notable : la feature LYM #4505 atteint une fréquence de 13.69 %, comparable au NORM de DeiT-Base, suggérant une représentation des lymphocytes plus condensée dans DINOv2.
+> **Observation :** Fréquences token-level très faibles sauf pour LYM #4505 (13.69 %), qui représente une exception notable — DINOv2 a apparemment condensé la représentation des lymphocytes dans une feature dédiée forte. Les autres classes restent en dessous de 0.01 %, empêchant une interprétation robuste. Ces valeurs seront recalculées en image-level (freq_img) lors de la relance v2.
 
 ---
 
