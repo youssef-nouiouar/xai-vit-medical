@@ -40,6 +40,7 @@ class AttentionCatcher:
         self.attns: list[torch.Tensor] = []
         self.handles = []
         self._saved_fused = []
+        self.paused = False   # while True, _hook is a no-op (see pause()/resume())
 
         blocks = getattr(model, "blocks", None)
         if blocks is None:
@@ -53,10 +54,21 @@ class AttentionCatcher:
             self.handles.append(attn.attn_drop.register_forward_hook(self._hook))
 
     def _hook(self, module, inp, out):
-        self.attns.append(out.detach())
+        if not self.paused:
+            self.attns.append(out.detach())
 
     def clear(self):
         self.attns = []
+
+    def pause(self):
+        """Stop appending to `self.attns`. Call before any forward pass whose
+        attention maps you don't need (e.g. masked-image sweeps in a
+        faithfulness metric) — otherwise every such pass leaks a full
+        (B, heads, N, N) tensor per layer and GPU memory grows unbounded."""
+        self.paused = True
+
+    def resume(self):
+        self.paused = False
 
     def remove(self):
         for h in self.handles:
