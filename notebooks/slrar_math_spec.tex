@@ -1,0 +1,297 @@
+% =====================================================================
+%  SLR-AR : Spectral-Laplacian Regularized Attention Rollout
+%  Mathematical specification for implementation.
+%  Compile:  pdflatex slrar_math_spec.tex
+% =====================================================================
+\documentclass[11pt]{article}
+
+\usepackage[margin=2.4cm]{geometry}
+\usepackage{amsmath,amssymb,amsthm,bm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\newcommand{\A}{\mathbf{A}}
+\newcommand{\D}{\mathbf{D}}
+\newcommand{\I}{\mathbf{I}}
+\newcommand{\Lap}{\mathbf{L}}
+\newcommand{\Pm}{\mathbf{P}}
+\newcommand{\Pt}{\tilde{\mathbf{P}}}
+\newcommand{\Q}{\mathbf{Q}}
+\newcommand{\R}{\mathbf{R}}
+\newcommand{\W}{\mathbf{W}}
+\newcommand{\uu}{\mathbf{u}}
+\newcommand{\vv}{\mathbf{v}}
+\newcommand{\Rb}{\mathbb{R}}
+\newcommand{\Gcal}{\mathcal{G}}
+
+\title{\textbf{SLR-AR: Spectral--Laplacian Regularized Attention Rollout}\\
+       \large Mathematical specification for implementation}
+\date{}
+
+\begin{document}
+\maketitle
+\vspace{-2.2em}
+
+\section{Notation}
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+Symbol & Meaning \\
+\midrule
+$L$ & number of transformer blocks (ViT-B/16: $L=12$) \\
+$H$ & number of attention heads (ViT-B/16: $H=12$) \\
+$N$ & number of tokens including \texttt{[CLS]} (ViT-B/16 @224: $N=197$) \\
+$\A^{(\ell)}\in\Rb^{H\times N\times N}$ & post-softmax attention of layer $\ell$ \\
+$\Pm^{(\ell)}\in\Rb^{N\times N}$ & propagation matrix (head-averaged $+$ residual) \\
+$\Pt^{(\ell)}$ & spectrally projected propagation matrix \\
+$\Q^{(\ell)}$ & final regularized propagation matrix \\
+$\R^{(\ell)}$ & aggregated rollout after $\ell$ layers \\
+$\tau$ & spectral-norm threshold, $\tau<1$ \\
+$K$ & power-iteration steps \\
+$M$ & Taylor truncation order \\
+$\beta$ & diffusion scale \\
+$\lambda_2^{(\ell)}$ & algebraic connectivity (2nd smallest eigenvalue of $\Lap^{(\ell)}$) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Baseline: standard attention rollout}
+
+Each $\A^{(\ell)}$ is row-stochastic. Standard rollout is the recursive product
+\begin{equation}
+\R \;=\; \A^{(1)}\A^{(2)}\cdots\A^{(L)} .
+\end{equation}
+
+\paragraph{Collapse mechanism.} Eq.~(1) is a time-inhomogeneous Markov chain: each
+$\A^{(\ell)}$ is a transition matrix with $\lambda_1=1$, and the product converges
+exponentially towards the stationary distribution at a rate set by the spectral gap
+$1-|\lambda_2|$. Because softmax gives all layers $|\lambda_2|\approx 1$
+(a small gap), the non-dominant eigenvalues of the product vanish and the map
+becomes uniform. This is \emph{spectral collapse}.
+
+\section{Step 0: propagation matrix (head averaging + residual)}
+
+\emph{Not written explicitly in the paper; standard practice (Abnar \& Zuidema):}
+\begin{equation}
+\bar{\A}^{(\ell)} = \frac{1}{H}\sum_{h=1}^{H}\A^{(\ell)}_h,
+\qquad
+\Pm^{(\ell)} \;=\; \mathrm{rownorm}\!\Big(\alpha\,\bar{\A}^{(\ell)} + (1-\alpha)\,\I\Big),
+\qquad \alpha = \tfrac{1}{2},
+\end{equation}
+where $\mathrm{rownorm}(\mathbf{X})_{ij} = X_{ij}/\sum_k X_{ik}$.
+
+\section{Step 1: spectral norm bounding (SNB)}
+
+$\|\Pm^{(\ell)}\|_2 = \sigma_{\max}(\Pm^{(\ell)}) \ge 1$ for any row-stochastic matrix.
+
+\paragraph{Differentiable power iteration (Eq.~4).} From a random
+$\vv_0\in\Rb^{N}$, for $k=1,\dots,K$:
+\begin{equation}
+\uu_k = \frac{\Pm^{(\ell)}\vv_{k-1}}{\|\Pm^{(\ell)}\vv_{k-1}\|_2},
+\qquad
+\vv_k = \frac{(\Pm^{(\ell)})^{\!\top}\uu_k}{\|(\Pm^{(\ell)})^{\!\top}\uu_k\|_2},
+\end{equation}
+giving the dominant singular value estimate
+\begin{equation}
+\sigma_K \;=\; \uu_K^{\top}\,\Pm^{(\ell)}\,\vv_K .
+\end{equation}
+
+\paragraph{Spectral projection operator (Eq.~5).}
+\begin{equation}
+\Pt^{(\ell)} \;=\;
+\begin{cases}
+\Pm^{(\ell)} \cdot \dfrac{\tau}{\sigma_K}, & \text{if } \sigma_K > \tau,\\[8pt]
+\Pm^{(\ell)}, & \text{otherwise,}
+\end{cases}
+\qquad\Longrightarrow\qquad
+\big\|\Pt^{(\ell)}\big\|_2 \le \tau < 1 .
+\end{equation}
+
+\paragraph{Optional deflation (Eq.~6).} To truncate several singular values, subtract
+the rank-one component and re-run the power iteration on the residual:
+\begin{equation}
+\Pm^{(\ell)} \;\leftarrow\; \Pm^{(\ell)} - \sigma_K\,\uu_K\vv_K^{\top}.
+\end{equation}
+(The paper defines this but does not use it.)
+
+\section{Step 2: graph-theoretic Laplacian smoothing (GTS)}
+
+Symmetrize $\Pt^{(\ell)}$ into a token affinity graph, build the degree matrix, and
+form the normalized Laplacian (Eq.~7):
+\begin{equation}
+\W^{(\ell)} = \tfrac{1}{2}\Big(\Pt^{(\ell)} + (\Pt^{(\ell)})^{\!\top}\Big),
+\qquad
+d_i^{(\ell)} = \sum_j w_{ij}^{(\ell)},
+\qquad
+\Lap^{(\ell)} = \I - (\D^{(\ell)})^{-1/2}\W^{(\ell)}(\D^{(\ell)})^{-1/2}.
+\end{equation}
+
+\paragraph{Diffusion kernel (Eq.~8).}
+\begin{equation}
+\Gcal_\beta\big(\Pt^{(\ell)}\big) \;=\; \exp\!\big(-\beta\,\Lap^{(\ell)}\big).
+\end{equation}
+With the eigendecomposition $\Lap = \sum_i \lambda_i \bm{\phi}_i\bm{\phi}_i^{\top}$,
+\begin{equation}
+\exp(-\beta\Lap) \;=\; \sum_{i=1}^{N} e^{-\beta\lambda_i}\,\bm{\phi}_i\bm{\phi}_i^{\top},
+\end{equation}
+i.e.\ eigenmode $i$ is damped by $e^{-\beta\lambda_i}$: high-frequency modes
+($\lambda_i \to 2$) are attenuated, low-frequency structure is preserved.
+
+\paragraph{Adaptive scale.}
+\begin{equation}
+\beta \;=\; \frac{1}{\lambda_2^{(\ell)}},
+\qquad
+\lambda_2^{(\ell)} = \text{2nd smallest eigenvalue of } \Lap^{(\ell)} .
+\end{equation}
+\emph{Implementation guard:} clamp $\beta$ (e.g.\ to $[0.1,20]$); $\lambda_2\to 0$ for a
+near-disconnected graph.
+
+\paragraph{Truncated Taylor series (Eq.~9), $M=8$:}
+\begin{equation}
+\exp\!\big(-\beta\Lap^{(\ell)}\big) \;\approx\; \sum_{m=0}^{M}\frac{(-\beta)^m}{m!}\big(\Lap^{(\ell)}\big)^{m}.
+\end{equation}
+Compute iteratively: $\mathbf{T}_0=\I$, $\mathbf{T}_m = \mathbf{T}_{m-1}\Lap\cdot(-\beta)/m$,
+$\Gcal = \sum_m \mathbf{T}_m$ (only matmuls $\Rightarrow$ differentiable).
+
+\section{Step 3: final propagation matrix and constrained aggregation}
+
+\begin{equation}
+\Q^{(\ell)} \;=\; \Gcal_\beta\big(\Pt^{(\ell)}\big),
+\qquad \text{with the claimed property } \big\|\Q^{(\ell)}\big\|_2 \le \tau < 1 .
+\end{equation}
+
+\begin{equation}
+\R^{(0)} = \I,
+\qquad
+\R^{(\ell)} \;=\; \R^{(\ell-1)}\,\Q^{(\ell)},
+\qquad
+\R_{\text{SLR-AR}} = \R^{(L)} .
+\end{equation}
+
+By submultiplicativity,
+\begin{equation}
+\big\|\R^{(L)}\big\|_2 \;\le\; \prod_{\ell=1}^{L}\big\|\Q^{(\ell)}\big\|_2 \;\le\; \tau^{L},
+\end{equation}
+so decay is a design parameter set by $\tau$ rather than a property of the softmax gap.
+
+\paragraph{Readout.} Take the \texttt{[CLS]} row, drop the self-entry, reshape to the
+patch grid, min--max normalize:
+\begin{equation}
+\bm{s} = \R^{(L)}_{0,\,1:N-1}\in\Rb^{196},
+\qquad
+S = \mathrm{reshape}(\bm{s}, 14\times 14),
+\qquad
+\hat{S} = \frac{S-\min S}{\max S-\min S}.
+\end{equation}
+
+\section{Algorithm}
+
+\begin{algorithm}[H]
+\caption{SLR-AR}
+\begin{algorithmic}[1]
+\Require attentions $\{\A^{(\ell)}\}_{\ell=1}^{L}$; $\tau=0.95$, $K=5$, $M=8$, $\alpha=0.5$
+\State $\R \gets \I_N$
+\For{$\ell = 1,\dots,L$}
+  \State $\Pm \gets \mathrm{rownorm}\big(\alpha\,\mathrm{mean}_h(\A^{(\ell)}) + (1-\alpha)\I\big)$
+         \Comment{Eq.~2}
+  \State $\sigma_K \gets \textsc{PowerIteration}(\Pm, K)$ \Comment{Eqs.~3--4}
+  \State $\Pt \gets \Pm\cdot\min\!\big(1,\ \tau/\sigma_K\big)$ \Comment{Eq.~5 (SNB)}
+  \State $\W \gets \tfrac{1}{2}(\Pt + \Pt^{\top})$; \quad $\D \gets \mathrm{diag}(\W\bm{1})$
+  \State $\Lap \gets \I - \D^{-1/2}\W\D^{-1/2}$ \Comment{Eq.~7}
+  \State $\beta \gets 1/\lambda_2(\Lap)$ \quad (clamped)
+  \State $\Gcal \gets \sum_{m=0}^{M}\frac{(-\beta)^m}{m!}\Lap^{m}$ \Comment{Eq.~9 (GTS)}
+  \State $\Q \gets \Gcal$ \Comment{Eq.~10 --- see \S\ref{sec:caveats}}
+  \State $\R \gets \R\,\Q$ \Comment{Eq.~11}
+\EndFor
+\State \Return $\R$
+\end{algorithmic}
+\end{algorithm}
+
+\paragraph{Ablation variants.} \texttt{rollout}: skip lines 5 and 6--10. \quad
+\texttt{snb}: skip 6--10. \quad \texttt{gts}: skip 5. \quad \texttt{slrar}: full.
+
+\section{Hyperparameters and cost}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+Parameter & Value & Source \\
+\midrule
+$\tau$ (spectral threshold) & $0.95$ & Sec.~5.1 \\
+$K$ (power iterations)      & $5$    & Sec.~5.1 \\
+$M$ (Taylor order)          & $8$    & Sec.~5.1 \\
+$\alpha$ (residual mixing)  & $0.5$  & not specified; standard practice \\
+$\beta$                     & $1/\lambda_2^{(\ell)}$, adaptive & Sec.~4.2 \\
+Overhead vs.\ rollout       & $\approx +15\%$ inference time & Sec.~5.1 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Evaluation metrics}
+
+\paragraph{Spectral Stability Index (label-free).}
+\begin{equation}
+\mathrm{SSI}(\R) \;=\; \frac{|\lambda_2(\R)|}{|\lambda_1(\R)|},
+\qquad |\lambda_1|\ge|\lambda_2|\ge\cdots
+\end{equation}
+Higher $=$ less collapse. Paper's ViT-B/16 reference: rollout $0.02$, SLR-AR $0.24$.
+
+\paragraph{Insertion / Deletion AUC.} With saliency ranking
+$\pi$ over the $196$ patches, insert (resp.\ delete) patches most-salient-first in
+$T$ steps, and integrate the model's probability of its own predicted class $c$:
+\begin{equation}
+\mathrm{AUC} \;=\; \int_{0}^{1} p_c\big(x_t\big)\,dt
+\;\approx\; \sum_{t} \tfrac{1}{2}\big(p_c(x_t)+p_c(x_{t+1})\big)\,\Delta t .
+\end{equation}
+Insertion higher is better; deletion lower is better.
+For H\&E patches use a \emph{blurred} baseline rather than black/gray.
+
+\section{Known inconsistencies to resolve when implementing}
+\label{sec:caveats}
+
+These are internal contradictions in the source paper; an implementation must pick
+a resolution.
+
+\begin{enumerate}
+\item \textbf{Sub-stochasticity.} Eq.~(5) multiplies every row by $\tau/\sigma_K<1$, so
+$\Pt$ is \emph{sub}-stochastic. Eq.~(10) nonetheless claims $\Q^{(\ell)}$ is
+row-stochastic \emph{and} $\|\Q^{(\ell)}\|_2\le\tau<1$. For a row-stochastic matrix
+$\|\cdot\|_2\ge 1$, so the two cannot hold simultaneously.
+
+\item \textbf{Eq.~(10) discards attention.} As written, $\Q=\exp(-\beta\Lap)$ contains
+no directed attention: $\Lap$ is built from the \emph{symmetrized} $\Pt$, so $\Q$ is
+symmetric, and $\lambda_1(\exp(-\beta\Lap)) = e^{0} = 1$ (since $\Lap$ has a zero
+eigenvalue), contradicting $\|\Q\|_2\le\tau<1$. A coherent reading, consistent with
+``application to a signal produces a smoothed version'' (Sec.~3.4), is
+\begin{equation}
+\Q^{(\ell)} \;=\; \exp\!\big(-\beta\Lap^{(\ell)}\big)\,\Pt^{(\ell)} .
+\end{equation}
+
+\item \textbf{SNB cannot change the SSI.} Since Eq.~(5) is a \emph{scalar} rescaling,
+$\Q^{(\ell)} = c_\ell\Pm^{(\ell)}$ with $c_\ell=\min(1,\tau/\sigma_K)$, hence
+\begin{equation}
+\R_{\text{SNB}} = \Big(\textstyle\prod_{\ell} c_\ell\Big)\R_{\text{rollout}}
+\quad\Longrightarrow\quad
+\lambda_i(\R_{\text{SNB}}) = \Big(\textstyle\prod_\ell c_\ell\Big)\lambda_i(\R_{\text{rollout}}),
+\end{equation}
+so $|\lambda_2|/|\lambda_1|$ is \textbf{exactly invariant}, and the min--max normalized
+saliency $\hat S$ is unchanged. The reported gain (SSI $0.02\!\to\!0.15$ from SNB alone,
+Table~3) is therefore not reproducible from Eq.~(5). Verified numerically to 6 decimals.
+
+\item \textbf{GTS lowers the SSI.} By Eq.~(10) above, mode $i$ is damped by
+$e^{-\beta\lambda_i}$ with larger $\lambda_i$ damped \emph{more}. Smoothing therefore
+reduces $|\lambda_2|/|\lambda_1|$ --- the opposite of the paper's claim.
+
+\item \textbf{Multiplication order.} Eq.~(1) reads $\A^{(1)}\cdots\A^{(L)}$ and Eq.~(11)
+$\R^{(\ell)}=\R^{(\ell-1)}\Q^{(\ell)}$ (shallow$\to$deep), but the surrounding prose says
+``deepest layer back to the input''. Follow the equations.
+\end{enumerate}
+
+\paragraph{Mechanisms that \emph{do} move the SSI.} Any \emph{non-scalar} operator:
+deflation (Eq.~6) removes the rank-one dominant component and directly raises
+$|\lambda_2|/|\lambda_1|$; or high-pass amplification instead of diffusion.
+
+\end{document}

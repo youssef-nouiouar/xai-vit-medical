@@ -1,0 +1,329 @@
+% =====================================================================
+%  SLR-AR : Empirical evaluation on colorectal histology (thesis section)
+%  Companion to slrar_math_spec.tex (same notation / macros).
+%  Compile standalone:  pdflatex slrar_thesis_section.tex
+% =====================================================================
+\documentclass[11pt]{article}
+
+\usepackage[margin=2.4cm]{geometry}
+\usepackage{amsmath,amssymb,amsthm,bm}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+% --- macros (mirror slrar_math_spec.tex) -----------------------------
+\newcommand{\A}{\mathbf{A}}
+\newcommand{\D}{\mathbf{D}}
+\newcommand{\W}{\mathbf{W}}
+\newcommand{\I}{\mathbf{I}}
+\newcommand{\Lap}{\mathbf{L}}
+\newcommand{\Pm}{\mathbf{P}}
+\newcommand{\Pt}{\tilde{\mathbf{P}}}
+\newcommand{\Q}{\mathbf{Q}}
+\newcommand{\R}{\mathbf{R}}
+\newcommand{\Rb}{\mathbb{R}}
+\newcommand{\SSI}{\mathrm{SSI}}
+\newtheorem{proposition}{Proposition}
+
+\title{\textbf{Does Spectral--Laplacian Regularization Prevent Attention
+Collapse?}\\[2pt]\large A negative result on a colorectal-histology
+Vision Transformer}
+\date{}
+
+\begin{document}
+\maketitle
+\vspace{-2.0em}
+
+% =====================================================================
+\section{Motivation}
+% =====================================================================
+
+Attention rollout \cite{abnar2020} aggregates the per-layer attention of a
+Vision Transformer (ViT) into a single token-to-token relevance map by the
+recursive product $\R=\A^{(1)}\cdots\A^{(L)}$. In deep ViTs this product
+suffers \emph{spectral collapse}: because every $\A^{(\ell)}$ is row-stochastic
+with $\lambda_1=1$ and $|\lambda_2|\!\approx\!1$, the accumulated map converges
+towards a rank-one, near-uniform matrix, erasing the spatial structure that
+makes the explanation useful. The \emph{Spectral--Laplacian Regularized
+Attention Rollout} (SLR-AR) framework proposes to cure this by inserting, at
+every block, (i)~a \emph{spectral-norm bounding} (SNB) step that rescales the
+propagation matrix so its largest singular value is at most $\tau<1$, and
+(ii)~a \emph{graph-theoretic smoothing} (GTS) step that applies a Laplacian
+diffusion kernel $\exp(-\beta\Lap)$ to the token-affinity graph. The reported
+gain is large: on ImageNet ViT-B/16 the Spectral Stability Index (SSI,
+defined below) rises from $0.02$ (rollout) to $0.24$ (SLR-AR).
+
+This section reports a controlled reimplementation and evaluation of SLR-AR on
+our Phase-1 target: a ViT-B/16 fine-tuned on the NCT-CRC-HE-100K /
+CRC-VAL-HE-7K colorectal-histology benchmark (nine tissue classes). We find
+that, once a numerical instability in the diffusion kernel is corrected, SLR-AR
+does \emph{not} reduce spectral collapse on this model; it makes it
+monotonically worse across every hyperparameter setting we tried. We trace this
+to two structural properties of the method that are independent of the dataset,
+and confirm both empirically and analytically.
+
+% =====================================================================
+\section{Experimental setup}
+% =====================================================================
+
+We evaluate on the external CRC-VAL-HE-7K test split, sampling a
+class-balanced subset. The saliency target for every metric is the
+model's own predicted class (faithfulness is measured with respect to the
+model, not the label). We report the four ablation variants of the framework:
+\texttt{rollout} (baseline), \texttt{snb} (SNB only), \texttt{gts} (GTS only)
+and \texttt{slrar} (both). The propagation matrix, power iteration, spectral
+projection, normalized Laplacian, diffusion kernel and constrained aggregation
+are implemented exactly as specified (see the accompanying mathematical
+specification), with the resolution $\Q^{(\ell)}=\exp(-\beta\Lap^{(\ell)})\,\Pt^{(\ell)}$
+for the otherwise under-determined final propagation matrix. Hyperparameters
+follow the paper: $\tau=0.95$, $K=5$ power-iteration steps, $M=8$ Taylor terms,
+residual mixing $\alpha=0.5$, and adaptive diffusion scale
+$\beta=1/\lambda_2^{(\ell)}$ clamped to $[0.1,20]$.
+
+\paragraph{Well-posedness of the Laplacian.} Attention matrices are
+row-stochastic but not symmetric, so we symmetrize the token-affinity graph,
+$\W^{(\ell)}=\tfrac12\big(\Pt^{(\ell)}+(\Pt^{(\ell)})^{\!\top}\big)$, before
+forming $\Lap^{(\ell)}=\I-(\D^{(\ell)})^{-1/2}\W^{(\ell)}(\D^{(\ell)})^{-1/2}$.
+Then $\Lap^{(\ell)}$ is symmetric positive semidefinite with real eigenvalues in
+$[0,2]$, and the algebraic connectivity $\lambda_2^{(\ell)}$ driving the adaptive
+scale is computed with a symmetric eigensolver. This is the only reading under
+which the framework's own eigenvalue claims are well-defined; the
+non-symmetrized form $\I-\D^{-1/2}\Pt\D^{-1/2}$ would be non-normal, with
+possibly complex spectrum and no well-defined ``second smallest'' eigenvalue.
+We likewise note that the spectral-projection step, described as singular-value
+\emph{truncation} $\sigma_i\mapsto\min(\sigma_i,\tau)$ but implemented via power
+iteration as the \emph{scalar normalization} $\Pt=\Pm\cdot\min(1,\tau/\sigma_1)$,
+is the latter throughout this work --- a distinction that is decisive in
+Proposition~\ref{prop:snb}.
+
+\paragraph{Metrics.} The primary, label-free indicator is the
+\emph{Spectral Stability Index}
+\begin{equation}
+\SSI(\R)=\frac{|\lambda_2(\R)|}{|\lambda_1(\R)|},\qquad
+|\lambda_1|\ge|\lambda_2|\ge\cdots,
+\label{eq:ssi}
+\end{equation}
+where a \emph{higher} value denotes a larger spectral gap and hence
+\emph{less} collapse. We additionally report Insertion and Deletion AUC over
+patch-level maskings with a Gaussian-blur baseline (appropriate for H\&E
+patches, where a black/gray reference is out-of-distribution).
+
+% =====================================================================
+\section{A numerical instability in the diffusion kernel}
+\label{sec:bug}
+% =====================================================================
+
+The diffusion kernel is approximated by a truncated Taylor series
+(Eq.~9 of the specification),
+$\exp(-\beta\Lap)\approx\sum_{m=0}^{M}\frac{(-\beta)^m}{m!}\Lap^{m}$,
+with $M=8$. A Taylor expansion of the exponential converges only when its
+argument is small; the truncation error grows without bound once
+$\beta\,\lambda_{\max}(\Lap)$ exceeds $\mathcal{O}(1)$. The method's own
+adaptive rule $\beta=1/\lambda_2$ \emph{guarantees} a large $\beta$ precisely on
+collapsed attention, where the algebraic connectivity $\lambda_2$ is small, so
+$\beta$ saturates its clamp. Table~\ref{tab:taylor} contrasts the true spectral
+norm of $\exp(-\beta\Lap)$ --- which is provably $\le 1$, since $\Lap$ is
+positive semidefinite --- with the Taylor estimate on a representative layer.
+
+\begin{table}[h]
+\centering
+\caption{Spectral norm of the diffusion kernel: exact matrix exponential
+versus the order-$8$ Taylor truncation, as $\beta$ increases. The exact value
+is bounded by $1$; the truncation diverges catastrophically.}
+\label{tab:taylor}
+\begin{tabular}{r r r r}
+\toprule
+$\beta$ & $\beta\,\lambda_{\max}(\Lap)$ & $\|\exp(-\beta\Lap)\|_2$ (exact) & $\|\cdot\|_2$ (Taylor, $M{=}8$) \\
+\midrule
+10 & 5.3  & 1.00 & $5.7$ \\
+15 & 7.9  & 1.00 & $1.9\times 10^{2}$ \\
+20 & 10.6 & 1.00 & $2.2\times 10^{3}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+In our first evaluation this manifested directly: the two GTS-bearing variants
+produced propagation matrices with mean spectral norm
+$\|\Q\|_2\approx 1.8\times 10^{2}$ (versus $\approx 1$ for the correct kernel)
+and an SSI numerically indistinguishable from zero. Replacing the truncation
+with the exact matrix exponential (\texttt{torch.linalg.matrix\_exp}; cheap at
+$N=197$) removes the instability. \textbf{All results below use the exact
+kernel.} We flag this because the truncated series is presented in the source
+as an implementation detail with no stability caveat, yet it silently destroys
+the method whenever the adaptive $\beta$ is engaged --- a reproducibility hazard
+for any downstream user.
+
+% =====================================================================
+\section{Results}
+\label{sec:results}
+% =====================================================================
+
+With the corrected kernel, no configuration of SLR-AR improves the SSI over the
+plain rollout baseline. Table~\ref{tab:ablation} reports the ablation at the
+default hyperparameters; Table~\ref{tab:sweep} sweeps the three degrees of
+freedom that could plausibly help (the $\beta$ clamp, the smoothing form, and
+row-renormalization).
+
+\begin{table}[h]
+\centering
+\caption{Ablation on CRC-VAL-HE-7K, exact diffusion kernel, default
+configuration ($\beta$ clamp $[0.1,20]$, $\Q=\exp(-\beta\Lap)\Pt$, no
+renormalization). Higher SSI $=$ less collapse.}
+\label{tab:ablation}
+\begin{tabular}{l r}
+\toprule
+Variant & $\SSI(\R)$ \\
+\midrule
+\texttt{rollout} & $7.6\times 10^{-3}$ \\
+\texttt{snb}     & $7.6\times 10^{-3}$ \quad (identical to rollout; see Prop.~\ref{prop:snb}) \\
+\texttt{gts}     & $3.3\times 10^{-8}$ \\
+\texttt{slrar}   & $3.3\times 10^{-8}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Two facts stand out. First, \texttt{snb} reproduces \texttt{rollout} to machine
+precision. Second, both GTS-bearing variants drive the SSI five orders of
+magnitude \emph{below} the baseline --- the diffusion actively deepens collapse.
+The full sweep (Table~\ref{tab:sweep}) shows this is not a corner case: the
+gap $\Delta=\SSI(\texttt{slrar})-\SSI(\texttt{rollout})$ is negative in all
+twelve settings, and its magnitude grows monotonically with the amount of
+diffusion (larger $\beta$ clamp, and the \texttt{applied} form that multiplies
+the near-rank-one $\Pt$ back in).
+
+\begin{table}[h]
+\centering
+\caption{Hyperparameter sweep, exact kernel. $\SSI(\texttt{rollout})=7.6\times
+10^{-3}$ throughout (baseline is configuration-independent).
+$\Delta=\SSI(\texttt{slrar})-\SSI(\texttt{rollout})$; every entry is negative.}
+\label{tab:sweep}
+\begin{tabular}{c l c r r}
+\toprule
+$\beta$ clamp & smoothing & renorm & $\SSI(\texttt{slrar})$ & $\Delta$ \\
+\midrule
+2.0  & paper   & yes & $7.1\times 10^{-4}$ & $-6.9\times 10^{-3}$ \\
+2.0  & paper   & no  & $5.6\times 10^{-4}$ & $-7.1\times 10^{-3}$ \\
+2.0  & applied & yes & $1.1\times 10^{-5}$ & $-7.6\times 10^{-3}$ \\
+2.0  & applied & no  & $7.4\times 10^{-6}$ & $-7.6\times 10^{-3}$ \\
+5.0  & paper   & yes & $2.9\times 10^{-6}$ & $-7.6\times 10^{-3}$ \\
+5.0  & paper   & no  & $2.3\times 10^{-6}$ & $-7.6\times 10^{-3}$ \\
+20.0 & paper   & yes & $1.2\times 10^{-6}$ & $-7.6\times 10^{-3}$ \\
+20.0 & paper   & no  & $7.5\times 10^{-7}$ & $-7.6\times 10^{-3}$ \\
+5.0  & applied & no  & $6.0\times 10^{-8}$ & $-7.6\times 10^{-3}$ \\
+5.0  & applied & yes & $5.5\times 10^{-8}$ & $-7.6\times 10^{-3}$ \\
+20.0 & applied & no  & $3.3\times 10^{-8}$ & $-7.6\times 10^{-3}$ \\
+20.0 & applied & yes & $1.5\times 10^{-8}$ & $-7.6\times 10^{-3}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The best configuration (gentlest diffusion, $\beta$ clamp $2.0$, \texttt{paper}
+form) still yields $\SSI=7.1\times10^{-4}$, an order of magnitude \emph{below}
+rollout. The faithfulness metrics corroborate the ordering: GTS never improves
+Insertion/Deletion AUC over the baseline. We therefore turn to \emph{why} the
+two components cannot help, independently of the data.
+
+% =====================================================================
+\section{Why the two components cannot reduce collapse}
+% =====================================================================
+
+\begin{proposition}[SNB is invariant to the SSI]
+\label{prop:snb}
+The spectral-projection step rescales each propagation matrix by a scalar,
+$\Pt^{(\ell)}=c_\ell\,\Pm^{(\ell)}$ with $c_\ell=\min(1,\tau/\sigma_K)\in(0,1]$.
+Hence the aggregated rollout satisfies
+$\R_{\mathrm{snb}}=\big(\prod_{\ell}c_\ell\big)\,\R_{\mathrm{rollout}}$, its
+eigenvalues are uniformly scaled, and
+\[
+\SSI(\R_{\mathrm{snb}})
+=\frac{|(\prod_\ell c_\ell)\,\lambda_2(\R_{\mathrm{rollout}})|}
+       {|(\prod_\ell c_\ell)\,\lambda_1(\R_{\mathrm{rollout}})|}
+=\SSI(\R_{\mathrm{rollout}}).
+\]
+Moreover the min--max-normalized \texttt{[CLS]} saliency is unchanged, as a
+positive scalar cancels in $(S-\min S)/(\max S-\min S)$.
+\end{proposition}
+
+Proposition~\ref{prop:snb} explains the exact tie in Table~\ref{tab:ablation}
+(confirmed to six decimals). The SSI, being a \emph{ratio} of eigenvalues, is by
+construction blind to any global rescaling. Since the paper's power-iteration
+form of SNB \emph{is} a global rescaling, SNB cannot contribute to the reported
+SSI gain; a genuine change would require a non-scalar operator such as the
+rank-one deflation the paper defines but never applies.
+
+\begin{proposition}[GTS is a consensus operator that closes the gap]
+\label{prop:gts}
+The normalized Laplacian $\Lap$ is positive semidefinite with a zero eigenvalue
+whose eigenvector is the (degree-weighted) constant mode. Its diffusion kernel
+$\exp(-\beta\Lap)=\sum_i e^{-\beta\lambda_i}\bm{\phi}_i\bm{\phi}_i^{\top}$ has
+top eigenvalue $e^{0}=1$ on that constant ``DC'' mode and damps every other mode
+by $e^{-\beta\lambda_i}<1$, \emph{more} strongly for larger $\lambda_i$. It is
+therefore a low-pass (averaging) operator with unit spectral radius attained
+only on the DC mode. Aggregating such kernels across depth,
+$\R=\prod_\ell \exp(-\beta_\ell\Lap^{(\ell)})$, is a consensus iteration: the DC
+component is preserved while all others contract geometrically, so
+$\SSI(\R)\to 0$ as $L$ grows.
+\end{proposition}
+
+The consensus mechanism is quantitatively sharp. For a fixed kernel with
+$\beta=1/\lambda_2$, a single application has a perfectly healthy gap
+($\SSI=e^{-1}=0.368$), but the depth-wise product collapses geometrically:
+\begin{center}
+\begin{tabular}{l r r r r r}
+\toprule
+depth $\ell$ & 1 & 2 & 4 & 8 & 12 \\
+\midrule
+$\SSI(\R^{(\ell)})$ & $0.368$ & $0.135$ & $1.8\times10^{-2}$
+& $3.4\times10^{-4}$ & $6.1\times10^{-6}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+The $\ell=12$ value matches the aggressive-diffusion rows of
+Table~\ref{tab:sweep}. This is the crux: \emph{diffusion suppresses
+high-frequency modes, and under the eigenvalue-ratio definition of collapse
+(Eq.~\ref{eq:ssi}), suppressing every mode except the dominant one \textbf{is}
+collapse.} The framework's stated intuition --- ``attenuating high-frequency
+eigenmodes prevents collapse'' --- conflates two different objects: it does
+smooth the \emph{spatial} frequency content of a single attention map (which can
+yield visually cleaner heatmaps), but it accelerates collapse of the
+\emph{aggregation spectrum}. The two SLR-AR components thus sit on opposite
+sides of the metric they are meant to improve: SNB cannot move it, and GTS moves
+it the wrong way.
+
+\paragraph{Row-stochasticity is not the remedy.} A natural objection is that the
+symmetric kernel $\exp(-\beta\Lap)$ is not row-stochastic
+($\exp(-\beta\Lap)\mathbf{1}\neq\mathbf{1}$, since $\Lap\mathbf{1}\neq\mathbf{0}$
+for the symmetrically normalized Laplacian of a non-symmetric $\Pt$), and that
+the random-walk Laplacian $\Lap_{\mathrm{rw}}=\I-\D^{-1}\Pt$ --- whose
+exponential \emph{is} exactly row-stochastic --- should be used instead. This
+does not change the conclusion. A random walk is itself a consensus process, so
+its depth-wise aggregation collapses at least as fast: substituting
+$\Lap_{\mathrm{rw}}$ yields $\SSI\approx3.7\times10^{-6}$ at $L=12$, versus
+$6.1\times10^{-6}$ for the symmetric kernel. Row-stochasticity governs whether
+$\Q^{(\ell)}$ is a valid probability propagator, not whether the aggregation
+preserves a spectral gap; it is orthogonal to the collapse mechanism of
+Proposition~\ref{prop:gts}.
+
+% =====================================================================
+\section{Conclusion}
+% =====================================================================
+
+On our colorectal-histology ViT-B/16, SLR-AR does not deliver its central
+promise. After correcting a Taylor-truncation instability that otherwise
+masquerades as a catastrophic failure (Section~\ref{sec:bug}), the method
+reduces the Spectral Stability Index below the plain-rollout baseline in every
+one of twelve hyperparameter configurations (Section~\ref{sec:results}), and two
+data-independent arguments (Propositions~\ref{prop:snb}--\ref{prop:gts}) show
+why: spectral-norm bounding is a scalar operation to which the ratio-based SSI is
+invariant, and Laplacian diffusion is a consensus operator whose depth-wise
+aggregation drives the spectral gap to zero. We conclude that, as specified, the
+framework cannot prevent spectral collapse measured this way. A component that
+genuinely enlarges the spectral gap must be \emph{non-scalar and gap-enhancing}
+--- e.g.\ deflation of the dominant rank-one component, or high-pass rather than
+low-pass filtering of the aggregation spectrum --- which we leave to future work.
+
+\begin{thebibliography}{9}
+\bibitem{abnar2020} S.~Abnar and W.~Zuidema.
+\textit{Quantifying Attention Flow in Transformers}. ACL, 2020.
+\end{thebibliography}
+
+\end{document}
